@@ -38,6 +38,7 @@ pub fn load_tray_icon(state: RecordingState) -> tauri::Result<Image<'static>> {
         RecordingState::Idle => include_bytes!("../icons/tray-idle.png"),
         RecordingState::Recording => include_bytes!("../icons/tray-recording.png"),
         RecordingState::Transcribing => include_bytes!("../icons/tray-transcribing.png"),
+        RecordingState::Muted => include_bytes!("../icons/tray-muted.png"),
     };
 
     // Decode PNG to RGBA
@@ -65,6 +66,7 @@ pub fn update_tray_state<R: Runtime>(
         RecordingState::Idle => "Whisper to Me - Ready",
         RecordingState::Recording => "Whisper to Me - Recording...",
         RecordingState::Transcribing => "Whisper to Me - Transcribing...",
+        RecordingState::Muted => "Whisper to Me - Muted (Press F4 to unmute)",
     };
 
     tray.set_tooltip(Some(tooltip))?;

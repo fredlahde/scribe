@@ -7,10 +7,12 @@ let store;
 let settings = {
   hotkey: "F2",
   hotkey_de: "",
+  hotkey_mute: "F4",
   model_path: null,
 };
 let isRecordingHotkey = false;
 let isRecordingHotkeyDe = false;
+let isRecordingHotkeyMute = false;
 
 async function init() {
   // Load settings from store
@@ -18,10 +20,12 @@ async function init() {
 
   const savedHotkey = await store.get("hotkey");
   const savedHotkeyDe = await store.get("hotkey_de");
+  const savedHotkeyMute = await store.get("hotkey_mute");
   const savedModelPath = await store.get("model_path");
 
   if (savedHotkey) settings.hotkey = savedHotkey;
   if (savedHotkeyDe) settings.hotkey_de = savedHotkeyDe;
+  if (savedHotkeyMute) settings.hotkey_mute = savedHotkeyMute;
   if (savedModelPath) settings.model_path = savedModelPath;
 
   updateUI();
@@ -40,6 +44,9 @@ function updateUI() {
   document.getElementById("hotkey-de-display").value = settings.hotkey_de || "";
   document.getElementById("hotkey-de-status").textContent =
     settings.hotkey_de ? `Current: ${settings.hotkey_de}` : "Current: Not set";
+  document.getElementById("hotkey-mute-display").value = settings.hotkey_mute || "F4";
+  document.getElementById("hotkey-mute-status").textContent =
+    `Current: ${settings.hotkey_mute || "F4"}`;
 }
 
 // Browse for model file
@@ -156,10 +163,55 @@ document.getElementById("hotkey-de-display").addEventListener("keydown", (e) => 
   isRecordingHotkeyDe = false;
 });
 
+// Record Mute hotkey
+document.getElementById("record-hotkey-mute-btn").addEventListener("click", () => {
+  const input = document.getElementById("hotkey-mute-display");
+  const btn = document.getElementById("record-hotkey-mute-btn");
+
+  if (!isRecordingHotkeyMute) {
+    isRecordingHotkeyMute = true;
+    input.value = "Press a key...";
+    input.focus();
+    btn.textContent = "Cancel";
+  } else {
+    isRecordingHotkeyMute = false;
+    input.value = settings.hotkey_mute || "F4";
+    btn.textContent = "Record";
+  }
+});
+
+// Capture key press for Mute hotkey
+document.getElementById("hotkey-mute-display").addEventListener("keydown", (e) => {
+  if (!isRecordingHotkeyMute) return;
+
+  e.preventDefault();
+
+  let parts = [];
+  if (e.ctrlKey || e.metaKey) parts.push("CommandOrControl");
+  if (e.altKey) parts.push("Alt");
+  if (e.shiftKey) parts.push("Shift");
+
+  // Get key name
+  let key = e.key;
+  if (key === " ") key = "Space";
+  if (key.length === 1) key = key.toUpperCase();
+
+  // Skip modifier-only presses
+  if (["Control", "Alt", "Shift", "Meta"].includes(key)) return;
+
+  parts.push(key);
+  settings.hotkey_mute = parts.join("+");
+
+  document.getElementById("hotkey-mute-display").value = settings.hotkey_mute;
+  document.getElementById("record-hotkey-mute-btn").textContent = "Record";
+  isRecordingHotkeyMute = false;
+});
+
 // Save settings
 document.getElementById("save-btn").addEventListener("click", async () => {
   await store.set("hotkey", settings.hotkey);
   await store.set("hotkey_de", settings.hotkey_de || "");
+  await store.set("hotkey_mute", settings.hotkey_mute || "F4");
   await store.set("model_path", settings.model_path);
   await store.save();
 

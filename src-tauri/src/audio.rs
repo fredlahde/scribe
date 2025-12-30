@@ -1,5 +1,5 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{FromSample, Sample, SampleFormat, Stream};
+use cpal::{Device, FromSample, Sample, SampleFormat, Stream, StreamConfig};
 use rubato::{FftFixedIn, Resampler};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -12,9 +12,13 @@ const AUDIO_GAIN: f32 = 3.0; // Amplify audio by 3x
 pub struct AudioRecorder {
     samples: Arc<Mutex<Vec<f32>>>,
     recording: Arc<AtomicBool>,
-    _stream: Option<Stream>,
+    stream: Option<Stream>,
     sample_rate: u32,
     channels: usize,
+    // Store device and config for recreating stream after unmute
+    device: Device,
+    stream_config: StreamConfig,
+    sample_format: SampleFormat,
 }
 
 impl AudioRecorder {
@@ -39,33 +43,18 @@ impl AudioRecorder {
 
         let sample_rate = config.sample_rate();
         let channels = config.channels() as usize;
+        let sample_format = config.sample_format();
+        let stream_config: StreamConfig = config.clone().into();
         let samples: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
         let recording = Arc::new(AtomicBool::new(false));
 
-        let stream = match config.sample_format() {
-            SampleFormat::F32 => build_input_stream::<f32>(
-                &device,
-                &config.into(),
-                samples.clone(),
-                recording.clone(),
-            ),
-            SampleFormat::I16 => build_input_stream::<i16>(
-                &device,
-                &config.into(),
-                samples.clone(),
-                recording.clone(),
-            ),
-            SampleFormat::I32 => build_input_stream::<i32>(
-                &device,
-                &config.into(),
-                samples.clone(),
-                recording.clone(),
-            ),
-            format => Err(Error::Audio(format!(
-                "unsupported sample format: {:?}",
-                format
-            ))),
-        }?;
+        let stream = Self::create_stream(
+            &device,
+            &stream_config,
+            sample_format,
+            samples.clone(),
+            recording.clone(),
+        )?;
 
         // Start the stream immediately and keep it running
         stream
@@ -75,10 +64,33 @@ impl AudioRecorder {
         Ok(Self {
             samples,
             recording,
-            _stream: Some(stream),
+            stream: Some(stream),
             sample_rate,
             channels,
+            device,
+            stream_config,
+            sample_format,
         })
+    }
+
+    fn create_stream(
+        device: &Device,
+        config: &StreamConfig,
+        sample_format: SampleFormat,
+        samples: Arc<Mutex<Vec<f32>>>,
+        recording: Arc<AtomicBool>,
+    ) -> Result<Stream> {
+        let stream = match sample_format {
+            SampleFormat::F32 => build_input_stream::<f32>(device, config, samples, recording),
+            SampleFormat::I16 => build_input_stream::<i16>(device, config, samples, recording),
+            SampleFormat::I32 => build_input_stream::<i32>(device, config, samples, recording),
+            format => Err(Error::Audio(format!(
+                "unsupported sample format: {:?}",
+                format
+            ))),
+        }?;
+
+        Ok(stream)
     }
 
     pub fn start(&self) -> Result<()> {
@@ -114,6 +126,50 @@ impl AudioRecorder {
         } else {
             Ok(mono)
         }
+    }
+
+    /// Mute the microphone by stopping and dropping the audio stream.
+    /// This releases the microphone so the system no longer shows it as in use.
+    pub fn mute(&mut self) -> Result<()> {
+        if self.stream.is_none() {
+            // Already muted
+            return Ok(());
+        }
+
+        // Drop the stream to release the microphone
+        self.stream = None;
+        self.recording.store(false, Ordering::SeqCst);
+        eprintln!("[Microphone muted]");
+        Ok(())
+    }
+
+    /// Unmute the microphone by recreating and starting the audio stream.
+    pub fn unmute(&mut self) -> Result<()> {
+        if self.stream.is_some() {
+            // Already unmuted
+            return Ok(());
+        }
+
+        let stream = Self::create_stream(
+            &self.device,
+            &self.stream_config,
+            self.sample_format,
+            self.samples.clone(),
+            self.recording.clone(),
+        )?;
+
+        stream
+            .play()
+            .map_err(|e| Error::Audio(format!("failed to start stream: {}", e)))?;
+
+        self.stream = Some(stream);
+        eprintln!("[Microphone unmuted]");
+        Ok(())
+    }
+
+    /// Check if the microphone is currently muted.
+    pub fn is_muted(&self) -> bool {
+        self.stream.is_none()
     }
 }
 

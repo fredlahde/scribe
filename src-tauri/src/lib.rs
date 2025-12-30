@@ -45,6 +45,11 @@ async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
         .get("hotkey_de")
         .and_then(|v| v.as_str().map(String::from));
 
+    let hotkey_mute = store
+        .get("hotkey_mute")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(|| "F4".to_string());
+
     let model_path = store
         .get("model_path")
         .and_then(|v| v.as_str().map(String::from));
@@ -69,6 +74,12 @@ async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
                 return Err(format!("Failed to setup German shortcut: {}", e));
             }
         }
+    }
+
+    // Re-register mute shortcut
+    if let Err(e) = setup_mute_shortcut(&app, &hotkey_mute) {
+        eprintln!("Failed to setup mute shortcut: {}", e);
+        return Err(format!("Failed to setup mute shortcut: {}", e));
     }
 
     // Reload transcriber if model path changed
@@ -116,9 +127,88 @@ fn setup_shortcut(
     Ok(())
 }
 
+fn setup_mute_shortcut(
+    app: &tauri::AppHandle,
+    shortcut_str: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let shortcut: Shortcut = shortcut_str.parse()?;
+    let app_handle = app.clone();
+
+    app.global_shortcut()
+        .on_shortcut(shortcut, move |_app, _shortcut, event| {
+            // Only toggle on key press, not release
+            if event.state == ShortcutState::Pressed {
+                handle_mute_toggle(&app_handle);
+            }
+        })?;
+
+    eprintln!("[Mute shortcut registered: {}]", shortcut_str);
+    Ok(())
+}
+
+fn handle_mute_toggle(app: &tauri::AppHandle) {
+    let resources = app.state::<Arc<Mutex<AppResources>>>();
+    let mut res = resources.lock().unwrap();
+
+    if res.recorder.is_muted() {
+        // Unmute
+        if let Err(e) = res.recorder.unmute() {
+            eprintln!("[Unmute error: {}]", e);
+            return;
+        }
+        res.state.set(RecordingState::Idle);
+
+        // Update tray icon
+        if let Some(tray) = app.tray_by_id(TRAY_ID) {
+            let _ = update_tray_state(&tray, RecordingState::Idle);
+        }
+
+        // Show notification
+        let _ = app
+            .notification()
+            .builder()
+            .title("Whisper to Me")
+            .body("Microphone enabled")
+            .show();
+    } else {
+        // Mute
+        if let Err(e) = res.recorder.mute() {
+            eprintln!("[Mute error: {}]", e);
+            return;
+        }
+        res.state.set(RecordingState::Muted);
+
+        // Update tray icon
+        if let Some(tray) = app.tray_by_id(TRAY_ID) {
+            let _ = update_tray_state(&tray, RecordingState::Muted);
+        }
+
+        // Show notification
+        let _ = app
+            .notification()
+            .builder()
+            .title("Whisper to Me")
+            .body("Microphone muted")
+            .show();
+    }
+}
+
 fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
     let resources = app.state::<Arc<Mutex<AppResources>>>();
     let mut res = resources.lock().unwrap();
+
+    // Check if muted
+    if res.recorder.is_muted() {
+        eprintln!("[Cannot record - microphone is muted]");
+        drop(res);
+        let _ = app
+            .notification()
+            .builder()
+            .title("Whisper to Me")
+            .body("Microphone is muted. Press F4 to unmute.")
+            .show();
+        return;
+    }
 
     // Check if transcriber is loaded
     if res.transcriber.is_none() {
@@ -147,6 +237,16 @@ fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
 
 fn handle_recording_stop(app: &tauri::AppHandle) {
     let app_clone = app.clone();
+
+    // Check if we're actually recording before spawning the thread
+    {
+        let resources = app.state::<Arc<Mutex<AppResources>>>();
+        let res = resources.lock().unwrap();
+        if res.state.get() != RecordingState::Recording {
+            // Not recording, nothing to do
+            return;
+        }
+    }
 
     // Spawn a thread to handle transcription (it's blocking)
     thread::spawn(move || {
@@ -264,6 +364,10 @@ pub fn run() {
             let hotkey_de = store
                 .get("hotkey_de")
                 .and_then(|v| v.as_str().map(String::from));
+            let hotkey_mute = store
+                .get("hotkey_mute")
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_else(|| "F4".to_string());
             let model_path = store
                 .get("model_path")
                 .and_then(|v| v.as_str().map(String::from));
@@ -315,6 +419,11 @@ pub fn run() {
                         eprintln!("[Failed to setup German shortcut: {}]", e);
                     }
                 }
+            }
+
+            // Setup mute shortcut
+            if let Err(e) = setup_mute_shortcut(app.handle(), &hotkey_mute) {
+                eprintln!("[Failed to setup mute shortcut: {}]", e);
             }
 
             // If no model configured, open settings window

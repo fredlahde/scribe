@@ -7,6 +7,7 @@ pub enum RecordingState {
     Idle = 0,
     Recording = 1,
     Transcribing = 2,
+    Muted = 3,
 }
 
 impl From<u8> for RecordingState {
@@ -14,6 +15,7 @@ impl From<u8> for RecordingState {
         match val {
             1 => RecordingState::Recording,
             2 => RecordingState::Transcribing,
+            3 => RecordingState::Muted,
             _ => RecordingState::Idle,
         }
     }
