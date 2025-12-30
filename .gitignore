@@ -5,6 +5,7 @@ ggml-medium-encoder.mlmodelc
 # Node.js
 node_modules/
 package-lock.json
+dist/
 
 # Tauri
 src-tauri/target/

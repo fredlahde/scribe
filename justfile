@@ -48,7 +48,7 @@ test-verbose:
 # Clean build artifacts
 clean:
     cargo clean --manifest-path src-tauri/Cargo.toml
-    rm -rf node_modules
+    rm -rf node_modules dist
 
 # Clean only Rust build artifacts
 clean-rust:
