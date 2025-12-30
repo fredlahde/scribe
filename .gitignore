@@ -1,3 +1,11 @@
 /target
 ggml-medium.bin
 ggml-medium-encoder.mlmodelc
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/

@@ -2,6 +2,7 @@ use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextPar
 
 use crate::error::{Error, Result};
 
+#[derive(Debug, Clone, Copy)]
 pub enum Language {
     English,
     German,
@@ -36,7 +37,7 @@ impl Transcriber {
 
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
 
-        // Set language to English
+        // Set language
         let lang_key = match language {
             Language::English => "en",
             Language::German => "de",

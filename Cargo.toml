@@ -1,12 +1,3 @@
-[package]
-name = "whisper_to_me"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-whisper-rs = { version = "0.15.1", features = ["coreml", "metal"] }
-cpal = "0.17"
-rdev = "0.5"
-enigo = "0.6"
-rubato = "0.16"
-thiserror = "2.0"
+[workspace]
+members = ["src-tauri"]
+resolver = "2"
