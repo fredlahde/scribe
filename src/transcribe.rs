@@ -2,14 +2,21 @@ use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextPar
 
 use crate::error::{Error, Result};
 
+pub enum Language {
+    English,
+    German,
+}
+
 pub struct Transcriber {
     ctx: WhisperContext,
 }
 
 impl Transcriber {
     pub fn new(model_path: &str) -> Result<Self> {
-        let mut params = WhisperContextParameters::default();
-        params.use_gpu = true;
+        let params = WhisperContextParameters {
+            use_gpu: true,
+            ..Default::default()
+        };
 
         let ctx = WhisperContext::new_with_params(model_path, params)
             .map_err(|e| Error::Transcription(format!("failed to load model: {}", e)))?;
@@ -17,7 +24,7 @@ impl Transcriber {
         Ok(Self { ctx })
     }
 
-    pub fn transcribe(&self, audio: &[f32]) -> Result<String> {
+    pub fn transcribe(&self, audio: &[f32], language: Language) -> Result<String> {
         if audio.is_empty() {
             return Ok(String::new());
         }
@@ -30,7 +37,11 @@ impl Transcriber {
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
 
         // Set language to English
-        params.set_language(Some("en"));
+        let lang_key = match language {
+            Language::English => "en",
+            Language::German => "de",
+        };
+        params.set_language(Some(lang_key));
 
         // Suppress console output
         params.set_print_special(false);

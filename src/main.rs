@@ -20,7 +20,8 @@ const MODEL_PATH: &str = "./ggml-medium.bin";
 #[derive(Debug)]
 enum HotkeyEvent {
     StartRecording,
-    StopRecording,
+    StopRecordingEnglish,
+    StopRecordingGerman,
 }
 
 fn main() -> Result<()> {
@@ -43,7 +44,7 @@ fn main() -> Result<()> {
         let recording = Arc::new(AtomicBool::new(false));
 
         let callback = move |event: Event| match event.event_type {
-            EventType::KeyPress(Key::F2) => {
+            EventType::KeyPress(Key::F2) | EventType::KeyPress(Key::F3) => {
                 if !recording.load(Ordering::SeqCst) {
                     recording.store(true, Ordering::SeqCst);
                     let _ = tx.send(HotkeyEvent::StartRecording);
@@ -52,7 +53,13 @@ fn main() -> Result<()> {
             EventType::KeyRelease(Key::F2) => {
                 if recording.load(Ordering::SeqCst) {
                     recording.store(false, Ordering::SeqCst);
-                    let _ = tx.send(HotkeyEvent::StopRecording);
+                    let _ = tx.send(HotkeyEvent::StopRecordingEnglish);
+                }
+            }
+            EventType::KeyRelease(Key::F3) => {
+                if recording.load(Ordering::SeqCst) {
+                    recording.store(false, Ordering::SeqCst);
+                    let _ = tx.send(HotkeyEvent::StopRecordingGerman);
                 }
             }
             _ => {}
@@ -73,7 +80,7 @@ fn main() -> Result<()> {
                 }
                 eprintln!("[Recording...]");
             }
-            Ok(HotkeyEvent::StopRecording) => {
+            Ok(HotkeyEvent::StopRecordingEnglish) => {
                 let audio = match recorder.stop() {
                     Ok(a) => a,
                     Err(e) => {
@@ -81,10 +88,40 @@ fn main() -> Result<()> {
                         continue;
                     }
                 };
-                eprintln!("[Transcribing {} samples...]", audio.len());
+                eprintln!("[Transcribing {} samples in english...]", audio.len());
 
                 if !audio.is_empty() {
-                    match transcriber.transcribe(&audio) {
+                    match transcriber.transcribe(&audio, transcribe::Language::English) {
+                        Ok(text) => {
+                            if !text.is_empty() {
+                                eprintln!("[Typing: {}]", text);
+                                if let Err(e) = text_input.type_text(&text) {
+                                    eprintln!("[Type error: {}]", e);
+                                }
+                            } else {
+                                eprintln!("[No speech detected]");
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[Transcription error: {}]", e);
+                        }
+                    }
+                } else {
+                    eprintln!("[No audio captured]");
+                }
+            }
+            Ok(HotkeyEvent::StopRecordingGerman) => {
+                let audio = match recorder.stop() {
+                    Ok(a) => a,
+                    Err(e) => {
+                        eprintln!("[Stop error: {}]", e);
+                        continue;
+                    }
+                };
+                eprintln!("[Transcribing {} samples in german...]", audio.len());
+
+                if !audio.is_empty() {
+                    match transcriber.transcribe(&audio, transcribe::Language::German) {
                         Ok(text) => {
                             if !text.is_empty() {
                                 eprintln!("[Typing: {}]", text);
