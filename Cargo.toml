@@ -1,0 +1,12 @@
+[package]
+name = "whisper_to_me"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+whisper-rs = { version = "0.15.1", features = ["coreml"] }
+cpal = "0.15"
+rdev = "0.5"
+enigo = "0.6"
+rubato = "0.15"
+thiserror = "2.0"
