@@ -81,7 +81,7 @@ pub fn open_settings_window<R: Runtime>(app: &AppHandle<R>) {
         if let Ok(window) =
             WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App("index.html".into()))
                 .title("Whisper to Me - Settings")
-                .inner_size(400.0, 300.0)
+                .inner_size(400.0, 380.0)
                 .resizable(false)
                 .build()
         {

@@ -25,6 +25,8 @@ pub struct AppResources {
     pub transcriber: Option<Transcriber>,
     pub text_input: TextInput,
     pub state: AppStateHolder,
+    /// The language to use for the current/next transcription
+    pub pending_language: Language,
 }
 
 #[tauri::command]
@@ -34,25 +36,39 @@ async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
         .store("settings.json")
         .map_err(|e| format!("Failed to open store: {}", e))?;
 
-    let hotkey = store
+    let hotkey_en = store
         .get("hotkey")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_else(|| "F2".to_string());
+
+    let hotkey_de = store
+        .get("hotkey_de")
+        .and_then(|v| v.as_str().map(String::from));
 
     let model_path = store
         .get("model_path")
         .and_then(|v| v.as_str().map(String::from));
 
-    // Unregister all shortcuts and re-register with new hotkey
+    // Unregister all shortcuts and re-register with new hotkeys
     let shortcut_manager = app.global_shortcut();
     shortcut_manager
         .unregister_all()
         .map_err(|e| format!("Failed to unregister shortcuts: {}", e))?;
 
-    // Re-register the shortcut
-    if let Err(e) = setup_shortcut(&app, &hotkey) {
-        eprintln!("Failed to setup shortcut: {}", e);
+    // Re-register English shortcut
+    if let Err(e) = setup_shortcut(&app, &hotkey_en, Language::English) {
+        eprintln!("Failed to setup English shortcut: {}", e);
         return Err(format!("Failed to setup shortcut: {}", e));
+    }
+
+    // Re-register German shortcut if configured
+    if let Some(ref hotkey) = hotkey_de {
+        if !hotkey.is_empty() {
+            if let Err(e) = setup_shortcut(&app, hotkey, Language::German) {
+                eprintln!("Failed to setup German shortcut: {}", e);
+                return Err(format!("Failed to setup German shortcut: {}", e));
+            }
+        }
     }
 
     // Reload transcriber if model path changed
@@ -77,6 +93,7 @@ async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
 fn setup_shortcut(
     app: &tauri::AppHandle,
     shortcut_str: &str,
+    language: Language,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let shortcut: Shortcut = shortcut_str.parse()?;
     let app_handle = app.clone();
@@ -87,7 +104,7 @@ fn setup_shortcut(
 
             match event.state {
                 ShortcutState::Pressed => {
-                    handle_recording_start(&app);
+                    handle_recording_start(&app, language);
                 }
                 ShortcutState::Released => {
                     handle_recording_stop(&app);
@@ -95,13 +112,13 @@ fn setup_shortcut(
             }
         })?;
 
-    eprintln!("[Shortcut registered: {}]", shortcut_str);
+    eprintln!("[Shortcut registered: {} ({:?})]", shortcut_str, language);
     Ok(())
 }
 
-fn handle_recording_start(app: &tauri::AppHandle) {
+fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
     let resources = app.state::<Arc<Mutex<AppResources>>>();
-    let res = resources.lock().unwrap();
+    let mut res = resources.lock().unwrap();
 
     // Check if transcriber is loaded
     if res.transcriber.is_none() {
@@ -110,6 +127,9 @@ fn handle_recording_start(app: &tauri::AppHandle) {
         open_settings_window(app);
         return;
     }
+
+    // Store the language to use for transcription
+    res.pending_language = language;
 
     // Update state to Recording
     res.state.set(RecordingState::Recording);
@@ -132,8 +152,8 @@ fn handle_recording_stop(app: &tauri::AppHandle) {
     thread::spawn(move || {
         let resources = app_clone.state::<Arc<Mutex<AppResources>>>();
 
-        // Stop recording and get samples
-        let audio = {
+        // Stop recording and get samples + language
+        let (audio, language) = {
             let res = resources.lock().unwrap();
 
             // Update state to Transcribing
@@ -144,8 +164,10 @@ fn handle_recording_stop(app: &tauri::AppHandle) {
                 let _ = update_tray_state(&tray, RecordingState::Transcribing);
             }
 
+            let language = res.pending_language;
+
             match res.recorder.stop() {
-                Ok(a) => a,
+                Ok(a) => (a, language),
                 Err(e) => {
                     eprintln!("[Stop error: {}]", e);
                     res.state.set(RecordingState::Idle);
@@ -157,14 +179,14 @@ fn handle_recording_stop(app: &tauri::AppHandle) {
             }
         };
 
-        eprintln!("[Transcribing {} samples...]", audio.len());
+        eprintln!("[Transcribing {} samples ({:?})...]", audio.len(), language);
 
         if !audio.is_empty() {
             // Transcribe
             let transcription = {
                 let res = resources.lock().unwrap();
                 if let Some(ref transcriber) = res.transcriber {
-                    transcriber.transcribe(&audio, Language::English)
+                    transcriber.transcribe(&audio, language)
                 } else {
                     Ok(String::new())
                 }
@@ -235,10 +257,13 @@ pub fn run() {
         .setup(|app| {
             // Load settings from store
             let store = app.store("settings.json")?;
-            let hotkey = store
+            let hotkey_en = store
                 .get("hotkey")
                 .and_then(|v| v.as_str().map(String::from))
                 .unwrap_or_else(|| "F2".to_string());
+            let hotkey_de = store
+                .get("hotkey_de")
+                .and_then(|v| v.as_str().map(String::from));
             let model_path = store
                 .get("model_path")
                 .and_then(|v| v.as_str().map(String::from));
@@ -272,14 +297,24 @@ pub fn run() {
                 transcriber,
                 text_input,
                 state: AppStateHolder::new(),
+                pending_language: Language::English,
             })));
 
             // Create tray with explicit ID
             let _tray = create_tray(app.handle())?;
 
-            // Setup global shortcut
-            if let Err(e) = setup_shortcut(app.handle(), &hotkey) {
-                eprintln!("[Failed to setup shortcut: {}]", e);
+            // Setup global shortcuts
+            if let Err(e) = setup_shortcut(app.handle(), &hotkey_en, Language::English) {
+                eprintln!("[Failed to setup English shortcut: {}]", e);
+            }
+
+            // Setup German shortcut if configured
+            if let Some(ref hotkey) = hotkey_de {
+                if !hotkey.is_empty() {
+                    if let Err(e) = setup_shortcut(app.handle(), hotkey, Language::German) {
+                        eprintln!("[Failed to setup German shortcut: {}]", e);
+                    }
+                }
             }
 
             // If no model configured, open settings window
@@ -290,7 +325,7 @@ pub fn run() {
                     tauri::WebviewUrl::App("index.html".into()),
                 )
                 .title("Whisper to Me - Settings")
-                .inner_size(400.0, 300.0)
+                .inner_size(400.0, 380.0)
                 .resizable(false)
                 .build()?;
 
