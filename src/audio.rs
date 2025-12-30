@@ -24,7 +24,7 @@ impl AudioRecorder {
             .default_input_device()
             .ok_or_else(|| Error::Audio("no input device available".to_string()))?;
 
-        eprintln!("[Audio device: {:?}]", device.name());
+        eprintln!("[Audio device: {:?}]", device.description());
 
         let config = device
             .default_input_config()
@@ -32,12 +32,12 @@ impl AudioRecorder {
 
         eprintln!(
             "[Audio config: sample_rate={}, channels={}, format={:?}]",
-            config.sample_rate().0,
+            config.sample_rate(),
             config.channels(),
             config.sample_format()
         );
 
-        let sample_rate = config.sample_rate().0;
+        let sample_rate = config.sample_rate();
         let channels = config.channels() as usize;
         let samples: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
         let recording = Arc::new(AtomicBool::new(false));
@@ -146,7 +146,7 @@ fn stereo_to_mono(samples: &[f32], channels: usize) -> Vec<f32> {
 fn resample(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Vec<f32>> {
     // Use a reasonable chunk size for the resampler
     let chunk_size = 1024;
-    
+
     let mut resampler = FftFixedIn::<f32>::new(
         from_rate as usize,
         to_rate as usize,
@@ -157,7 +157,7 @@ fn resample(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Vec<f32>> {
     .map_err(|e| Error::Resample(format!("failed to create resampler: {}", e)))?;
 
     let mut output = Vec::new();
-    
+
     // Process in chunks
     for chunk in samples.chunks(chunk_size) {
         // Pad the last chunk if needed
@@ -168,12 +168,12 @@ fn resample(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Vec<f32>> {
         } else {
             chunk.to_vec()
         };
-        
+
         let waves_in = vec![input_chunk];
         let waves_out = resampler
             .process(&waves_in, None)
             .map_err(|e| Error::Resample(format!("failed to resample: {}", e)))?;
-        
+
         if let Some(channel) = waves_out.into_iter().next() {
             output.extend(channel);
         }

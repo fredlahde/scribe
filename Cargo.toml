@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 whisper-rs = { version = "0.15.1", features = ["coreml", "metal"] }
-cpal = "0.15"
+cpal = "0.17"
 rdev = "0.5"
 enigo = "0.6"
-rubato = "0.15"
+rubato = "0.16"
 thiserror = "2.0"
