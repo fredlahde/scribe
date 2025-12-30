@@ -43,16 +43,28 @@ impl AudioRecorder {
         let recording = Arc::new(AtomicBool::new(false));
 
         let stream = match config.sample_format() {
-            SampleFormat::F32 => {
-                build_input_stream::<f32>(&device, &config.into(), samples.clone(), recording.clone())
-            }
-            SampleFormat::I16 => {
-                build_input_stream::<i16>(&device, &config.into(), samples.clone(), recording.clone())
-            }
-            SampleFormat::I32 => {
-                build_input_stream::<i32>(&device, &config.into(), samples.clone(), recording.clone())
-            }
-            format => Err(Error::Audio(format!("unsupported sample format: {:?}", format))),
+            SampleFormat::F32 => build_input_stream::<f32>(
+                &device,
+                &config.into(),
+                samples.clone(),
+                recording.clone(),
+            ),
+            SampleFormat::I16 => build_input_stream::<i16>(
+                &device,
+                &config.into(),
+                samples.clone(),
+                recording.clone(),
+            ),
+            SampleFormat::I32 => build_input_stream::<i32>(
+                &device,
+                &config.into(),
+                samples.clone(),
+                recording.clone(),
+            ),
+            format => Err(Error::Audio(format!(
+                "unsupported sample format: {:?}",
+                format
+            ))),
         }?;
 
         // Start the stream immediately and keep it running
