@@ -8,7 +8,10 @@ pub struct Transcriber {
 
 impl Transcriber {
     pub fn new(model_path: &str) -> Result<Self> {
-        let ctx = WhisperContext::new_with_params(model_path, WhisperContextParameters::default())
+        let mut params = WhisperContextParameters::default();
+        params.use_gpu = true;
+
+        let ctx = WhisperContext::new_with_params(model_path, params)
             .map_err(|e| Error::Transcription(format!("failed to load model: {}", e)))?;
 
         Ok(Self { ctx })
@@ -44,9 +47,9 @@ impl Transcriber {
         let mut result = String::new();
         for i in 0..num_segments {
             if let Some(segment) = state.get_segment(i) {
-                let text = segment
-                    .to_str()
-                    .map_err(|e| Error::Transcription(format!("failed to get segment text: {}", e)))?;
+                let text = segment.to_str().map_err(|e| {
+                    Error::Transcription(format!("failed to get segment text: {}", e))
+                })?;
                 result.push_str(text);
             }
         }

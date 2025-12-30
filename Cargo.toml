@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-whisper-rs = { version = "0.15.1", features = ["coreml"] }
+whisper-rs = { version = "0.15.1", features = ["coreml", "metal"] }
 cpal = "0.15"
 rdev = "0.5"
 enigo = "0.6"
