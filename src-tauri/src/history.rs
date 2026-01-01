@@ -68,29 +68,46 @@ impl HistoryDb {
         language: &str,
         sample_count: usize,
     ) -> Result<Transcription> {
-        let conn = self.conn.lock().unwrap();
+        let mut conn = self.conn.lock().unwrap();
 
         // Calculate duration from sample count (16kHz sample rate)
         let duration_ms = ((sample_count as f64 / WHISPER_SAMPLE_RATE) * 1000.0) as i64;
 
-        // Count words (simple whitespace split)
-        let word_count = text.split_whitespace().count() as i32;
+        // Count words using unicode-aware splitting
+        let word_count = text
+            .split(|c: char| c.is_whitespace() || c.is_ascii_punctuation())
+            .filter(|s| !s.is_empty())
+            .count() as i32;
 
         // Current timestamp in ISO 8601 format
         let created_at: DateTime<Utc> = Utc::now();
         let created_at_str = created_at.to_rfc3339();
 
-        conn.execute(
+        // Wrap both INSERT and cleanup DELETE in a single transaction
+        let tx = conn
+            .transaction()
+            .map_err(|e| Error::Database(format!("failed to start transaction: {}", e)))?;
+
+        tx.execute(
             "INSERT INTO transcriptions (text, language, duration_ms, word_count, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5)",
             params![text, language, duration_ms, word_count, created_at_str],
         )
         .map_err(|e| Error::Database(format!("failed to insert transcription: {}", e)))?;
 
-        let id = conn.last_insert_rowid();
+        let id = tx.last_insert_rowid();
 
-        // Enforce max history size by deleting oldest entries
-        self.cleanup_old_entries(&conn)?;
+        // Enforce max history size by deleting oldest entries (within same transaction)
+        tx.execute(
+            "DELETE FROM transcriptions WHERE id NOT IN (
+                SELECT id FROM transcriptions ORDER BY created_at DESC LIMIT ?1
+            )",
+            params![MAX_HISTORY_SIZE],
+        )
+        .map_err(|e| Error::Database(format!("failed to cleanup old entries: {}", e)))?;
+
+        tx.commit()
+            .map_err(|e| Error::Database(format!("failed to commit transaction: {}", e)))?;
 
         Ok(Transcription {
             id,
@@ -142,19 +159,6 @@ impl HistoryDb {
             .map_err(|e| Error::Database(format!("failed to delete transcription: {}", e)))?;
 
         Ok(rows_affected > 0)
-    }
-
-    /// Remove oldest entries to stay within MAX_HISTORY_SIZE
-    fn cleanup_old_entries(&self, conn: &Connection) -> Result<()> {
-        conn.execute(
-            "DELETE FROM transcriptions WHERE id NOT IN (
-                SELECT id FROM transcriptions ORDER BY created_at DESC LIMIT ?1
-            )",
-            params![MAX_HISTORY_SIZE],
-        )
-        .map_err(|e| Error::Database(format!("failed to cleanup old entries: {}", e)))?;
-
-        Ok(())
     }
 }
 

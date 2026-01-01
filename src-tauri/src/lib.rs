@@ -299,9 +299,10 @@ fn handle_recording_stop(app: &tauri::AppHandle) {
 
         eprintln!("[Transcribing {} samples ({:?})...]", audio.len(), language);
 
-        let sample_count = audio.len();
-
         if !audio.is_empty() {
+            // Store sample count inside the check since it's only used here
+            let sample_count = audio.len();
+
             // Transcribe
             let transcription = {
                 let res = resources.lock().unwrap();
@@ -480,7 +481,20 @@ pub fn run() {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         // Prevent the window from closing, just hide it
                         api.prevent_close();
-                        let _ = window_clone.hide();
+                        // Check if window is visible before hiding to avoid race conditions
+                        match window_clone.is_visible() {
+                            Ok(true) => {
+                                if let Err(e) = window_clone.hide() {
+                                    eprintln!("[Failed to hide window: {}]", e);
+                                }
+                            }
+                            Ok(false) => {
+                                // Window already hidden, nothing to do
+                            }
+                            Err(e) => {
+                                eprintln!("[Failed to check window visibility: {}]", e);
+                            }
+                        }
                     }
                 });
 
