@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Whisper to Me needs microphone access to record your voice for transcription.</string>
+    <string>Scribe needs microphone access to record your voice for transcription.</string>
 </dict>
 </plist>

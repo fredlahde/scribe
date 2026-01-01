@@ -1,4 +1,4 @@
-# Whisper to Me - Tauri Application
+# Scribe - Tauri Application
 # Use `just --list` to see all available recipes
 
 # Default recipe - show available commands

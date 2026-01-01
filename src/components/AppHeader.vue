@@ -40,7 +40,7 @@ function goBack() {
       </button>
     </div>
     <h1 class="title">
-      {{ isSettingsPage ? "Settings" : "Whisper to Me" }}
+      {{ isSettingsPage ? "Settings" : "Scribe" }}
     </h1>
     <div class="header-right">
       <button

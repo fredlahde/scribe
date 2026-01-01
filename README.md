@@ -1,4 +1,4 @@
-# Whisper to Me
+# Scribe
 
 A macOS push-to-talk voice transcription app built with Tauri. Hold a hotkey to record, release to transcribe using OpenAI's Whisper model with CoreML/Metal acceleration, and automatically type the result.
 
@@ -138,7 +138,7 @@ See `just --list` for all available commands.
 ## Project Structure
 
 ```
-whisper_to_me/
+scribe/
 ├── src/                       # Frontend (Vue.js + TypeScript)
 │   ├── components/
 │   │   ├── AppHeader.vue      # Navigation header
