@@ -32,6 +32,16 @@ pub struct AppResources {
 }
 
 #[tauri::command]
+fn list_audio_devices() -> Vec<String> {
+    crate::audio::list_input_devices()
+}
+
+#[tauri::command]
+fn validate_audio_device(device_name: Option<String>) -> bool {
+    crate::audio::device_exists(device_name.as_deref())
+}
+
+#[tauri::command]
 async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
     // Load new settings from store
     let store = app
@@ -55,6 +65,20 @@ async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
     let model_path = store
         .get("model_path")
         .and_then(|v| v.as_str().map(String::from));
+
+    let audio_device = store
+        .get("audio_device")
+        .and_then(|v| v.as_str().map(String::from));
+
+    // Switch audio device if changed
+    {
+        let resources = app.state::<Arc<Mutex<AppResources>>>();
+        let mut res = resources.lock().unwrap();
+        if let Err(e) = res.recorder.set_device(audio_device.as_deref()) {
+            eprintln!("[Failed to switch audio device: {}]", e);
+            return Err(format!("Failed to switch audio device: {}", e));
+        }
+    }
 
     // Unregister all shortcuts and re-register with new hotkeys
     let shortcut_manager = app.global_shortcut();
@@ -391,7 +415,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             reload_settings,
             get_history,
-            delete_transcription
+            delete_transcription,
+            list_audio_devices,
+            validate_audio_device
         ])
         .setup(|app| {
             // Load settings from store
@@ -410,10 +436,13 @@ pub fn run() {
             let model_path = store
                 .get("model_path")
                 .and_then(|v| v.as_str().map(String::from));
+            let audio_device = store
+                .get("audio_device")
+                .and_then(|v| v.as_str().map(String::from));
 
-            // Initialize audio recorder
-            let recorder =
-                AudioRecorder::new().map_err(|e| format!("Failed to init audio: {}", e))?;
+            // Initialize audio recorder with saved device (or default)
+            let recorder = AudioRecorder::new(audio_device.as_deref())
+                .map_err(|e| format!("Failed to init audio: {}", e))?;
 
             // Initialize text input (lazy - actual Enigo init deferred until use)
             let text_input = TextInput::new();
