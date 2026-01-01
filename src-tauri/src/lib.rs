@@ -1,5 +1,6 @@
 mod audio;
 mod error;
+mod history;
 mod input;
 mod settings;
 mod transcribe;
@@ -8,16 +9,17 @@ mod tray;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_store::StoreExt;
 
 use crate::audio::AudioRecorder;
+use crate::history::{HistoryDb, Transcription};
 use crate::input::TextInput;
 use crate::settings::{AppStateHolder, RecordingState};
 use crate::transcribe::{Language, Transcriber};
-use crate::tray::{create_tray, open_settings_window, update_tray_state, TRAY_ID};
+use crate::tray::{create_tray, show_main_window, update_tray_state, TRAY_ID};
 
 /// Shared app resources
 pub struct AppResources {
@@ -99,6 +101,22 @@ async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[tauri::command]
+async fn get_history(app: tauri::AppHandle) -> Result<Vec<Transcription>, String> {
+    let history_db = app.state::<Arc<HistoryDb>>();
+    history_db
+        .get_history(50)
+        .map_err(|e| format!("Failed to get history: {}", e))
+}
+
+#[tauri::command]
+async fn delete_transcription(app: tauri::AppHandle, id: i64) -> Result<bool, String> {
+    let history_db = app.state::<Arc<HistoryDb>>();
+    history_db
+        .delete_transcription(id)
+        .map_err(|e| format!("Failed to delete transcription: {}", e))
 }
 
 fn setup_shortcut(
@@ -212,9 +230,9 @@ fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
 
     // Check if transcriber is loaded
     if res.transcriber.is_none() {
-        eprintln!("[No model loaded - opening settings]");
+        eprintln!("[No model loaded - opening main window]");
         drop(res);
-        open_settings_window(app);
+        show_main_window(app);
         return;
     }
 
@@ -281,6 +299,8 @@ fn handle_recording_stop(app: &tauri::AppHandle) {
 
         eprintln!("[Transcribing {} samples ({:?})...]", audio.len(), language);
 
+        let sample_count = audio.len();
+
         if !audio.is_empty() {
             // Transcribe
             let transcription = {
@@ -296,6 +316,23 @@ fn handle_recording_stop(app: &tauri::AppHandle) {
                 Ok(text) => {
                     if !text.is_empty() {
                         eprintln!("[Transcribed: {}]", text);
+
+                        // Save to history database
+                        let lang_str = match language {
+                            Language::English => "en",
+                            Language::German => "de",
+                        };
+                        let history_db = app_clone.state::<Arc<HistoryDb>>();
+                        match history_db.save_transcription(&text, lang_str, sample_count) {
+                            Ok(record) => {
+                                eprintln!("[Saved to history: id={}]", record.id);
+                                // Emit event for frontend to update
+                                let _ = app_clone.emit("transcription-added", &record);
+                            }
+                            Err(e) => {
+                                eprintln!("[Failed to save to history: {}]", e);
+                            }
+                        }
 
                         // Type the text
                         {
@@ -342,18 +379,19 @@ pub fn run() {
     tauri::Builder::default()
         // Single instance - must be first
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // Focus settings window if exists, otherwise create it
-            if let Some(window) = app.get_webview_window("settings") {
-                let _ = window.set_focus();
-            } else {
-                open_settings_window(app);
-            }
+            // Focus main window if exists
+            show_main_window(app);
         }))
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![reload_settings])
+        .invoke_handler(tauri::generate_handler![
+            reload_settings,
+            get_history,
+            delete_transcription
+        ])
         .setup(|app| {
             // Load settings from store
             let store = app.store("settings.json")?;
@@ -395,6 +433,15 @@ pub fn run() {
                 None
             };
 
+            // Initialize history database
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+            let history_db = HistoryDb::new(app_data_dir)
+                .map_err(|e| format!("Failed to init history database: {}", e))?;
+            app.manage(Arc::new(history_db));
+
             // Store resources
             app.manage(Arc::new(Mutex::new(AppResources {
                 recorder,
@@ -426,18 +473,18 @@ pub fn run() {
                 eprintln!("[Failed to setup mute shortcut: {}]", e);
             }
 
-            // If no model configured, open settings window
-            if model_path.is_none() {
-                let window = tauri::WebviewWindowBuilder::new(
-                    app,
-                    "settings",
-                    tauri::WebviewUrl::App("index.html".into()),
-                )
-                .title("Whisper to Me - Settings")
-                .inner_size(400.0, 380.0)
-                .resizable(false)
-                .build()?;
+            // Setup window close handler to hide instead of quit
+            if let Some(window) = app.get_webview_window("main") {
+                let window_clone = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        // Prevent the window from closing, just hide it
+                        api.prevent_close();
+                        let _ = window_clone.hide();
+                    }
+                });
 
+                // Open devtools in debug mode
                 #[cfg(debug_assertions)]
                 window.open_devtools();
             }

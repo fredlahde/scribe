@@ -8,6 +8,7 @@ A macOS push-to-talk voice transcription app built with Tauri. Hold a hotkey to 
 - **Fast local transcription** - Uses Whisper.cpp with CoreML and Metal GPU acceleration
 - **Multi-language support** - Separate hotkeys for English and German transcription
 - **Auto-typing** - Transcribed text is automatically typed at your cursor position
+- **Transcription history** - View, copy, and manage your recent transcriptions
 - **System tray app** - Lives in your menu bar with status indicators
 - **Mute toggle** - Quickly disable/enable the microphone with a hotkey
 - **Configurable hotkeys** - Set custom keyboard shortcuts for each action
@@ -36,7 +37,7 @@ You need to download a Whisper model to use this app. The recommended model is `
 1. Download `ggml-medium.bin` and place it in a convenient location (e.g., `~/Models/`)
 2. Download and unzip `ggml-medium-encoder.mlmodelc.zip`
 3. Place the unzipped `ggml-medium-encoder.mlmodelc` folder in the **same directory** as the `.bin` file
-4. On first launch, configure the model path in the settings window
+4. On first launch, configure the model path in the settings
 
 ## Installation
 
@@ -73,8 +74,8 @@ The built app will be in `src-tauri/target/release/bundle/macos/`.
 
 ### First Launch
 
-1. Launch the app - the settings window will open automatically if no model is configured
-2. Click **Browse** and select your `ggml-medium.bin` file
+1. Launch the app - the main window will open
+2. Navigate to **Settings** and click **Browse** to select your `ggml-medium.bin` file
 3. Configure your preferred hotkeys (defaults: F2 for English, F4 for mute)
 4. Click **Save**
 5. Grant microphone and accessibility permissions when prompted
@@ -85,6 +86,22 @@ The built app will be in `src-tauri/target/release/bundle/macos/`.
 2. **Hold** the English hotkey (default: F2) and speak
 3. **Release** the hotkey when done - the app will transcribe and type the result
 
+### Transcription History
+
+The main window displays your recent transcriptions with:
+
+- The transcribed text
+- Language used (English/German)
+- Recording duration
+- Word count
+- Relative timestamp
+
+You can:
+- **Copy** any transcription to clipboard with one click
+- **Delete** transcriptions with undo support (5 second window)
+
+History is stored locally in a SQLite database (up to 50 entries).
+
 ### System Tray
 
 The app lives in your menu bar with status icons:
@@ -94,7 +111,7 @@ The app lives in your menu bar with status icons:
 - **Transcribing** - Processing speech to text
 - **Muted** - Microphone disabled
 
-Right-click the tray icon for options (Settings, Quit).
+Click the tray icon menu for options (Open, Quit). Closing the window hides it to the tray rather than quitting.
 
 ### Hotkeys
 
@@ -122,20 +139,32 @@ See `just --list` for all available commands.
 
 ```
 whisper_to_me/
-├── src/                    # Frontend (vanilla JS)
-│   ├── main.js            # Settings UI logic
-│   └── styles.css         # Styles
-├── src-tauri/             # Rust backend
+├── src/                       # Frontend (Vue.js + TypeScript)
+│   ├── components/
+│   │   ├── AppHeader.vue      # Navigation header
+│   │   └── TranscriptionItem.vue  # History list item
+│   ├── stores/
+│   │   └── pendingDelete.ts   # Undo deletion state management
+│   ├── views/
+│   │   ├── HistoryView.vue    # Transcription history list
+│   │   └── SettingsView.vue   # App configuration
+│   ├── styles/
+│   │   └── main.css           # Global styles
+│   ├── App.vue                # Root component
+│   ├── main.ts                # App entry point
+│   └── router.ts              # Vue Router configuration
+├── src-tauri/                 # Rust backend
 │   └── src/
-│       ├── lib.rs         # App setup, shortcuts, orchestration
-│       ├── audio.rs       # Microphone capture, resampling
-│       ├── transcribe.rs  # Whisper integration
-│       ├── input.rs       # Text typing simulation
-│       ├── settings.rs    # App state management
-│       ├── tray.rs        # System tray handling
-│       └── error.rs       # Error types
-├── index.html             # Settings window
-└── justfile               # Build commands
+│       ├── lib.rs             # App setup, shortcuts, orchestration
+│       ├── audio.rs           # Microphone capture, resampling
+│       ├── history.rs         # SQLite transcription storage
+│       ├── transcribe.rs      # Whisper integration
+│       ├── input.rs           # Text typing simulation
+│       ├── settings.rs        # App state management
+│       ├── tray.rs            # System tray handling
+│       └── error.rs           # Error types
+├── index.html                 # App entry HTML
+└── justfile                   # Build commands
 ```
 
 ## Troubleshooting
