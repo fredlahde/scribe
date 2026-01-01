@@ -1,10 +1,10 @@
 [package]
-name = "whisper-to-me"
+name = "scribe"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "whisper_to_me_lib"
+name = "scribe_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
