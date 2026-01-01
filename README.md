@@ -1,4 +1,10 @@
+<p align="center">
+  <img src="readme_hero.png" alt="Scribe" width="100%">
+</p>
+
 # Scribe
+
+Scribe is a lightweight macOS menu bar app that turns your voice into text instantly. Simply hold a hotkey, speak, and release—your words are transcribed locally using Whisper with Apple Silicon acceleration and typed directly at your cursor. No cloud services, no latency, just fast and private voice-to-text.
 
 A macOS push-to-talk voice transcription app built with Tauri. Hold a hotkey to record, release to transcribe using OpenAI's Whisper model with CoreML/Metal acceleration, and automatically type the result.
 
@@ -97,6 +103,7 @@ The main window displays your recent transcriptions with:
 - Relative timestamp
 
 You can:
+
 - **Copy** any transcription to clipboard with one click
 - **Delete** transcriptions with undo support (5 second window)
 
