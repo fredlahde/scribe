@@ -12,6 +12,7 @@ interface Settings {
   hotkey_de: string;
   hotkey_mute: string;
   model_path: string | null;
+  audio_device: string;
 }
 
 const settings = ref<Settings>({
@@ -19,6 +20,7 @@ const settings = ref<Settings>({
   hotkey_de: "",
   hotkey_mute: "F4",
   model_path: null,
+  audio_device: "",
 });
 
 const isRecordingHotkey = ref(false);
@@ -27,6 +29,11 @@ const isRecordingHotkeyMute = ref(false);
 const showModelWarning = ref(false);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let store: any = null;
+
+// Audio devices
+const audioDevices = ref<string[]>([]);
+const isRefreshingDevices = ref(false);
+const saveError = ref<string | null>(null);
 
 // Template refs for hotkey inputs
 const hotkeyInputEn = ref<HTMLInputElement | null>(null);
@@ -55,6 +62,17 @@ watch(isRecordingHotkeyMute, async (recording) => {
   }
 });
 
+async function loadAudioDevices() {
+  isRefreshingDevices.value = true;
+  try {
+    audioDevices.value = await invoke<string[]>("list_audio_devices");
+  } catch (err) {
+    console.error("Failed to load audio devices:", err);
+  } finally {
+    isRefreshingDevices.value = false;
+  }
+}
+
 onMounted(async () => {
   store = await load("settings.json");
 
@@ -62,6 +80,7 @@ onMounted(async () => {
   const savedHotkeyDe = await store.get("hotkey_de");
   const savedHotkeyMute = await store.get("hotkey_mute");
   const savedModelPath = await store.get("model_path");
+  const savedAudioDevice = await store.get("audio_device");
 
   // Explicitly handle empty strings vs null/undefined
   // A saved empty string means the user cleared the hotkey intentionally
@@ -75,8 +94,15 @@ onMounted(async () => {
     settings.value.hotkey_mute = savedHotkeyMute;
   }
   if (savedModelPath) settings.value.model_path = savedModelPath;
+  if (typeof savedAudioDevice === "string") {
+    // Preserve empty string to represent the default audio device, matching backend behavior
+    settings.value.audio_device = savedAudioDevice;
+  }
 
   showModelWarning.value = !settings.value.model_path;
+
+  // Load available audio devices
+  await loadAudioDevices();
 });
 
 async function browseModel() {
@@ -156,16 +182,38 @@ function handleKeydown(e: KeyboardEvent, type: "en" | "de" | "mute") {
 async function saveSettings() {
   if (!store) return;
 
+  saveError.value = null;
+
+  // Validate audio device before saving (skip validation for system default)
+  if (settings.value.audio_device) {
+    try {
+      const isValid = await invoke<boolean>("validate_audio_device", {
+        deviceName: settings.value.audio_device,
+      });
+      if (!isValid) {
+        saveError.value = `Audio device "${settings.value.audio_device}" is no longer available. Please select a different device.`;
+        return;
+      }
+    } catch (e) {
+      console.error("Failed to validate audio device:", e);
+      saveError.value = String(e);
+      return;
+    }
+  }
+
   await store.set("hotkey", settings.value.hotkey);
   await store.set("hotkey_de", settings.value.hotkey_de || "");
   await store.set("hotkey_mute", settings.value.hotkey_mute || "F4");
   await store.set("model_path", settings.value.model_path);
+  await store.set("audio_device", settings.value.audio_device || "");
   await store.save();
 
   try {
     await invoke("reload_settings");
   } catch (e) {
     console.error("Failed to reload settings:", e);
+    saveError.value = String(e);
+    return;
   }
 
   router.push("/");
@@ -183,6 +231,11 @@ function cancel() {
       Please select a Whisper model file to get started.
     </div>
 
+    <!-- Error banner for save errors -->
+    <div v-if="saveError" class="error">
+      Failed to save settings: {{ saveError }}
+    </div>
+
     <!-- Model Path -->
     <div class="setting">
       <label class="setting-label">Whisper Model:</label>
@@ -197,6 +250,23 @@ function cancel() {
         <button class="btn" @click="browseModel">Browse...</button>
       </div>
       <small class="setting-hint">Select a .bin model file (e.g., ggml-medium.bin)</small>
+    </div>
+
+    <!-- Audio Input Device -->
+    <div class="setting">
+      <label class="setting-label">Audio Input Device:</label>
+      <div class="input-row">
+        <select class="input" v-model="settings.audio_device">
+          <option value="">System Default</option>
+          <option v-for="device in audioDevices" :key="device" :value="device">
+            {{ device }}
+          </option>
+        </select>
+        <button class="btn" @click="loadAudioDevices" :disabled="isRefreshingDevices">
+          {{ isRefreshingDevices ? "..." : "Refresh" }}
+        </button>
+      </div>
+      <small class="setting-hint">Select which microphone to use for recording</small>
     </div>
 
     <!-- English Hotkey -->

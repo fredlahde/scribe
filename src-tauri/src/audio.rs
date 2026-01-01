@@ -7,6 +7,80 @@ use std::sync::{Arc, Mutex};
 use crate::error::{Error, Result};
 
 const WHISPER_SAMPLE_RATE: u32 = 16000;
+
+/// Helper to get device name from description
+fn get_device_name(device: &Device) -> String {
+    device
+        .description()
+        .map(|d| d.name().to_string())
+        .unwrap_or_else(|_| "Unknown".to_string())
+}
+
+/// Returns a list of available audio input device names.
+pub fn list_input_devices() -> Vec<String> {
+    let host = cpal::default_host();
+    match host.input_devices() {
+        Ok(devices) => devices.map(|d| get_device_name(&d)).collect(),
+        Err(e) => {
+            eprintln!("[Failed to enumerate input devices: {}]", e);
+            Vec::new()
+        }
+    }
+}
+
+/// Checks if an audio device with the given name exists.
+/// Returns true if device_name is None (system default) or if the device is found.
+pub fn device_exists(device_name: Option<&str>) -> bool {
+    let Some(name) = device_name else {
+        return true; // None means system default, always valid
+    };
+
+    if name.is_empty() {
+        return true; // Empty string treated as system default
+    }
+
+    let host = cpal::default_host();
+    if let Ok(devices) = host.input_devices() {
+        for device in devices {
+            if get_device_name(&device) == name {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Finds an input device by name, falling back to default if not found.
+fn find_device_by_name(device_name: Option<&str>) -> Result<Device> {
+    let host = cpal::default_host();
+
+    match device_name {
+        // Treat empty string like `None` (system default), consistent with `device_exists`
+        Some(name) if name.is_empty() => {
+            return host
+                .default_input_device()
+                .ok_or_else(|| Error::Audio("no input device available".to_string()));
+        }
+        Some(name) => {
+            if let Ok(devices) = host.input_devices() {
+                for device in devices {
+                    let device_name_str = get_device_name(&device);
+                    if device_name_str == name {
+                        eprintln!("[Using audio device: {}]", name);
+                        return Ok(device);
+                    }
+                }
+            }
+            eprintln!("[Device '{}' not found, falling back to default]", name);
+        }
+        None => {
+            // No specific device requested; fall through to default below.
+        }
+    }
+
+    host.default_input_device()
+        .ok_or_else(|| Error::Audio("no input device available".to_string()))
+}
 const AUDIO_GAIN: f32 = 3.0; // Amplify audio by 3x
 
 pub struct AudioRecorder {
@@ -22,13 +96,10 @@ pub struct AudioRecorder {
 }
 
 impl AudioRecorder {
-    pub fn new() -> Result<Self> {
-        let host = cpal::default_host();
-        let device = host
-            .default_input_device()
-            .ok_or_else(|| Error::Audio("no input device available".to_string()))?;
+    pub fn new(device_name: Option<&str>) -> Result<Self> {
+        let device = find_device_by_name(device_name)?;
 
-        eprintln!("[Audio device: {:?}]", device.description());
+        eprintln!("[Audio device: {}]", get_device_name(&device));
 
         let config = device
             .default_input_config()
@@ -170,6 +241,65 @@ impl AudioRecorder {
     /// Check if the microphone is currently muted.
     pub fn is_muted(&self) -> bool {
         self.stream.is_none()
+    }
+
+    /// Switch to a different audio input device.
+    /// If device_name is None or the device is not found, falls back to the default device.
+    pub fn set_device(&mut self, device_name: Option<&str>) -> Result<()> {
+        // Find the new device
+        let device = find_device_by_name(device_name)?;
+        let device_name_str = get_device_name(&device);
+
+        // Get the new device's config
+        let config = device
+            .default_input_config()
+            .map_err(|e| Error::Audio(format!("failed to get default input config: {}", e)))?;
+
+        eprintln!(
+            "[Switching to device: {} (sample_rate={}, channels={}, format={:?})]",
+            device_name_str,
+            config.sample_rate(),
+            config.channels(),
+            config.sample_format()
+        );
+
+        let sample_rate = config.sample_rate();
+        let channels = config.channels() as usize;
+        let sample_format = config.sample_format();
+        let stream_config: StreamConfig = config.into();
+
+        // Stop current stream if running
+        let was_muted = self.stream.is_none();
+        self.stream = None;
+        self.recording.store(false, Ordering::SeqCst);
+        self.samples.lock().unwrap().clear();
+
+        // Update device info
+        self.device = device;
+        self.stream_config = stream_config;
+        self.sample_format = sample_format;
+        self.sample_rate = sample_rate;
+        self.channels = channels;
+
+        // Recreate stream if we weren't muted
+        if !was_muted {
+            let stream = Self::create_stream(
+                &self.device,
+                &self.stream_config,
+                self.sample_format,
+                self.samples.clone(),
+                self.recording.clone(),
+            )?;
+
+            stream
+                .play()
+                .map_err(|e| Error::Audio(format!("failed to start stream: {}", e)))?;
+
+            self.stream = Some(stream);
+        }
+
+        eprintln!("[Audio device switched to: {}]", device_name_str);
+        Ok(())
     }
 }
 
