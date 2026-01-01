@@ -185,7 +185,7 @@ fn handle_mute_toggle(app: &tauri::AppHandle) {
         let _ = app
             .notification()
             .builder()
-            .title("Whisper to Me")
+            .title("Scribe")
             .body("Microphone enabled")
             .show();
     } else {
@@ -205,7 +205,7 @@ fn handle_mute_toggle(app: &tauri::AppHandle) {
         let _ = app
             .notification()
             .builder()
-            .title("Whisper to Me")
+            .title("Scribe")
             .body("Microphone muted")
             .show();
     }
@@ -222,7 +222,7 @@ fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
         let _ = app
             .notification()
             .builder()
-            .title("Whisper to Me")
+            .title("Scribe")
             .body("Microphone is muted. Press F4 to unmute.")
             .show();
         return;
@@ -347,7 +347,7 @@ fn handle_recording_stop(app: &tauri::AppHandle) {
                         let _ = app_clone
                             .notification()
                             .builder()
-                            .title("Whisper to Me")
+                            .title("Scribe")
                             .body("Transcription complete")
                             .show();
                     } else {

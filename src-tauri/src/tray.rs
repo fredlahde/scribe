@@ -10,14 +10,14 @@ use crate::settings::RecordingState;
 pub const TRAY_ID: &str = "main";
 
 pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {
-    let open_i = MenuItem::with_id(app, "open", "Open Whisper to Me", true, None::<&str>)?;
-    let quit_i = MenuItem::with_id(app, "quit", "Quit Whisper to Me", true, None::<&str>)?;
+    let open_i = MenuItem::with_id(app, "open", "Open Scribe", true, None::<&str>)?;
+    let quit_i = MenuItem::with_id(app, "quit", "Quit Scribe", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open_i, &quit_i])?;
 
     let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(load_tray_icon(RecordingState::Idle)?)
         .menu(&menu)
-        .tooltip("Whisper to Me - Ready (Press F2 to record)")
+        .tooltip("Scribe - Ready (Press F2 to record)")
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => {
@@ -63,10 +63,10 @@ pub fn update_tray_state<R: Runtime>(
     state: RecordingState,
 ) -> tauri::Result<()> {
     let tooltip = match state {
-        RecordingState::Idle => "Whisper to Me - Ready",
-        RecordingState::Recording => "Whisper to Me - Recording...",
-        RecordingState::Transcribing => "Whisper to Me - Transcribing...",
-        RecordingState::Muted => "Whisper to Me - Muted (Press F4 to unmute)",
+        RecordingState::Idle => "Scribe - Ready",
+        RecordingState::Recording => "Scribe - Recording...",
+        RecordingState::Transcribing => "Scribe - Transcribing...",
+        RecordingState::Muted => "Scribe - Muted (Press F4 to unmute)",
     };
 
     tray.set_tooltip(Some(tooltip))?;
