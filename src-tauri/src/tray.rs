@@ -77,7 +77,11 @@ pub fn update_tray_state<R: Runtime>(
 
 pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.set_focus();
+        if let Err(e) = window.show() {
+            eprintln!("[Failed to show main window: {}]", e);
+        }
+        if let Err(e) = window.set_focus() {
+            eprintln!("[Failed to focus main window: {}]", e);
+        }
     }
 }

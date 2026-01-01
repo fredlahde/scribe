@@ -204,10 +204,21 @@ body {
   border: 1px solid #ffc107;
   border-radius: var(--radius-cards);
   padding: 12px 16px;
+  padding-left: 40px;
   color: #856404;
   font-size: 13px;
   margin-bottom: 16px;
   animation: slideDown var(--transition-normal);
+  position: relative;
+}
+
+.warning::before {
+  content: "\26A0"; /* Warning sign unicode */
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
 }
 
 /* Animations */

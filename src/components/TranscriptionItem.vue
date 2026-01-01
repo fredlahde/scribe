@@ -31,9 +31,13 @@ const relativeTime = computed(() => {
   return created.toLocaleDateString();
 });
 
-// Format language display
+// Format language display with fallback for unknown codes
 const languageDisplay = computed(() => {
-  return props.transcription.language === "en" ? "English" : "German";
+  const langMap: Record<string, string> = {
+    en: "English",
+    de: "German",
+  };
+  return langMap[props.transcription.language] ?? props.transcription.language;
 });
 
 // Format duration (e.g., "5.2s")

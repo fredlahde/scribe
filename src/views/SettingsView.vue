@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch, nextTick } from "vue";
 import { load } from "@tauri-apps/plugin-store";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
@@ -28,6 +28,33 @@ const showModelWarning = ref(false);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let store: any = null;
 
+// Template refs for hotkey inputs
+const hotkeyInputEn = ref<HTMLInputElement | null>(null);
+const hotkeyInputDe = ref<HTMLInputElement | null>(null);
+const hotkeyInputMute = ref<HTMLInputElement | null>(null);
+
+// Watch recording states to manage focus
+watch(isRecordingHotkey, async (recording) => {
+  if (recording) {
+    await nextTick();
+    hotkeyInputEn.value?.focus();
+  }
+});
+
+watch(isRecordingHotkeyDe, async (recording) => {
+  if (recording) {
+    await nextTick();
+    hotkeyInputDe.value?.focus();
+  }
+});
+
+watch(isRecordingHotkeyMute, async (recording) => {
+  if (recording) {
+    await nextTick();
+    hotkeyInputMute.value?.focus();
+  }
+});
+
 onMounted(async () => {
   store = await load("settings.json");
 
@@ -36,9 +63,17 @@ onMounted(async () => {
   const savedHotkeyMute = await store.get("hotkey_mute");
   const savedModelPath = await store.get("model_path");
 
-  if (savedHotkey) settings.value.hotkey = savedHotkey;
-  if (savedHotkeyDe) settings.value.hotkey_de = savedHotkeyDe;
-  if (savedHotkeyMute) settings.value.hotkey_mute = savedHotkeyMute;
+  // Explicitly handle empty strings vs null/undefined
+  // A saved empty string means the user cleared the hotkey intentionally
+  if (typeof savedHotkey === "string") {
+    settings.value.hotkey = savedHotkey;
+  }
+  if (typeof savedHotkeyDe === "string") {
+    settings.value.hotkey_de = savedHotkeyDe;
+  }
+  if (typeof savedHotkeyMute === "string") {
+    settings.value.hotkey_mute = savedHotkeyMute;
+  }
   if (savedModelPath) settings.value.model_path = savedModelPath;
 
   showModelWarning.value = !settings.value.model_path;
@@ -169,10 +204,12 @@ function cancel() {
       <label class="setting-label">Push-to-Talk Hotkey (English):</label>
       <div class="input-row">
         <input
+          ref="hotkeyInputEn"
           type="text"
           class="input"
           :value="isRecordingHotkey ? 'Press a key...' : settings.hotkey"
           readonly
+          tabindex="0"
           placeholder="Press to record..."
           @keydown="handleKeydown($event, 'en')"
         />
@@ -188,10 +225,12 @@ function cancel() {
       <label class="setting-label">Push-to-Talk Hotkey (German):</label>
       <div class="input-row">
         <input
+          ref="hotkeyInputDe"
           type="text"
           class="input"
           :value="isRecordingHotkeyDe ? 'Press a key...' : (settings.hotkey_de || '')"
           readonly
+          tabindex="0"
           placeholder="Press to record..."
           @keydown="handleKeydown($event, 'de')"
         />
@@ -209,10 +248,12 @@ function cancel() {
       <label class="setting-label">Mute/Unmute Hotkey:</label>
       <div class="input-row">
         <input
+          ref="hotkeyInputMute"
           type="text"
           class="input"
           :value="isRecordingHotkeyMute ? 'Press a key...' : (settings.hotkey_mute || 'F4')"
           readonly
+          tabindex="0"
           placeholder="Press to record..."
           @keydown="handleKeydown($event, 'mute')"
         />

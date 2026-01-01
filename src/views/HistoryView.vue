@@ -72,9 +72,17 @@ function handleUndo() {
 }
 
 function restoreTranscription(transcription: Transcription) {
-  const insertIndex = transcriptions.value.findIndex(
-    (t) => new Date(t.created_at) < new Date(transcription.created_at)
-  );
+  // Use created_at as primary sort key, id as secondary for deterministic ordering
+  const insertIndex = transcriptions.value.findIndex((t) => {
+    const tCreated = new Date(t.created_at).getTime();
+    const restoreCreated = new Date(transcription.created_at).getTime();
+    // If timestamps differ, sort by timestamp (newer first)
+    if (tCreated !== restoreCreated) {
+      return tCreated < restoreCreated;
+    }
+    // If timestamps are identical, use id as tiebreaker (higher id = newer)
+    return t.id < transcription.id;
+  });
 
   if (insertIndex === -1) {
     transcriptions.value.push(transcription);
@@ -83,11 +91,14 @@ function restoreTranscription(transcription: Transcription) {
   }
 }
 
+// Unique key for this component's callback registration
+const CALLBACK_KEY = "history-view";
+
 onMounted(async () => {
   await fetchHistory();
 
   // Register callback for restoring items when undo is triggered from elsewhere
-  registerCallbacks(restoreTranscription);
+  registerCallbacks(CALLBACK_KEY, restoreTranscription);
 
   // Listen for new transcriptions
   unlistenTranscriptionAdded = await listen<Transcription>(
@@ -107,7 +118,7 @@ onUnmounted(() => {
 
   // Unregister callbacks but DON'T delete pending items - they persist and can be undone
   // when the user navigates back to the history view
-  unregisterCallbacks();
+  unregisterCallbacks(CALLBACK_KEY);
 });
 </script>
 
