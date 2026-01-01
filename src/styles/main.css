@@ -1,35 +1,36 @@
-/* macOS Design System Variables */
+/* macOS Dark Mode Design System Variables */
 :root {
-  /* Colors */
-  --bg-primary: #f5f5f7;
-  --bg-secondary: #ffffff;
-  --bg-hover: rgba(0, 0, 0, 0.05);
-  --bg-active: rgba(0, 0, 0, 0.1);
-  --bg-toolbar: rgba(246, 246, 246, 0.9);
+  /* Colors - Dark Mode */
+  --bg-primary: #1c1c1e;
+  --bg-secondary: #2c2c2e;
+  --bg-tertiary: #3a3a3c;
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --bg-active: rgba(255, 255, 255, 0.12);
+  --bg-toolbar: rgba(44, 44, 46, 0.9);
 
   /* Accent colors */
-  --accent-primary: #007aff;
-  --accent-primary-hover: #0056b3;
-  --accent-danger: #ff3b30;
-  --accent-danger-hover: #d32f2f;
-  --accent-success: #34c759;
+  --accent-primary: #0a84ff;
+  --accent-primary-hover: #409cff;
+  --accent-danger: #ff453a;
+  --accent-danger-hover: #ff6961;
+  --accent-success: #30d158;
 
   /* Text colors */
-  --text-primary: #1d1d1f;
-  --text-secondary: #86868b;
-  --text-tertiary: #aeaeb2;
+  --text-primary: #f5f5f7;
+  --text-secondary: #98989d;
+  --text-tertiary: #636366;
 
   /* Border colors */
-  --border-color: rgba(0, 0, 0, 0.1);
-  --border-color-strong: rgba(0, 0, 0, 0.15);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-color-strong: rgba(255, 255, 255, 0.18);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
+  /* Shadows - darker for dark mode */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
 
   /* Border radius */
-  --radius-cards: 8px;
+  --radius-cards: 10px;
   --radius-controls: 6px;
   --radius-sm: 4px;
 
@@ -83,12 +84,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Common button styles */
@@ -200,12 +201,12 @@ body {
 
 /* Warning banner */
 .warning {
-  background: #fff3cd;
-  border: 1px solid #ffc107;
+  background: rgba(255, 214, 10, 0.15);
+  border: 1px solid rgba(255, 214, 10, 0.4);
   border-radius: var(--radius-cards);
   padding: 12px 16px;
   padding-left: 40px;
-  color: #856404;
+  color: #ffd60a;
   font-size: 13px;
   margin-bottom: 16px;
   animation: slideDown var(--transition-normal);
@@ -264,5 +265,5 @@ body {
 
 /* Selection color */
 ::selection {
-  background: rgba(0, 122, 255, 0.2);
+  background: rgba(10, 132, 255, 0.3);
 }
