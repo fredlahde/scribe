@@ -32,7 +32,17 @@
   "bundle": {
     "active": true,
     "targets": ["dmg", "app"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/32x32@2x.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/256x256.png",
+      "icons/256x256@2x.png",
+      "icons/512x512.png",
+      "icons/512x512@2x.png",
+      "icons/icon.png"
+    ],
     "resources": [
       "icons/tray-idle.png",
       "icons/tray-recording.png",
