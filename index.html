@@ -3,85 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Settings - Whisper to Me</title>
-    <link rel="stylesheet" href="/src/styles.css" />
+    <title>Whisper to Me</title>
   </head>
   <body>
-    <div class="container">
-      <h1>Settings</h1>
-
-      <!-- Warning banner when no model configured -->
-      <div id="model-warning" class="warning" style="display: none;">
-        Please select a Whisper model file to get started.
-      </div>
-
-      <!-- Model Path -->
-      <div class="setting">
-        <label for="model-path">Whisper Model:</label>
-        <div class="input-row">
-          <input
-            type="text"
-            id="model-path"
-            readonly
-            placeholder="No model selected"
-          />
-          <button id="browse-btn">Browse...</button>
-        </div>
-        <small>Select a .bin model file (e.g., ggml-medium.bin)</small>
-      </div>
-
-      <!-- Hotkey -->
-      <div class="setting">
-        <label for="hotkey">Push-to-Talk Hotkey (English):</label>
-        <div class="input-row">
-          <input
-            type="text"
-            id="hotkey-display"
-            readonly
-            placeholder="Press to record..."
-          />
-          <button id="record-hotkey-btn">Record</button>
-        </div>
-        <small id="hotkey-status">Current: F2</small>
-      </div>
-
-      <!-- German Hotkey -->
-      <div class="setting">
-        <label for="hotkey-de">Push-to-Talk Hotkey (German):</label>
-        <div class="input-row">
-          <input
-            type="text"
-            id="hotkey-de-display"
-            readonly
-            placeholder="Press to record..."
-          />
-          <button id="record-hotkey-de-btn">Record</button>
-        </div>
-        <small id="hotkey-de-status">Current: Not set</small>
-      </div>
-
-      <!-- Mute Hotkey -->
-      <div class="setting">
-        <label for="hotkey-mute">Mute/Unmute Hotkey:</label>
-        <div class="input-row">
-          <input
-            type="text"
-            id="hotkey-mute-display"
-            readonly
-            placeholder="Press to record..."
-          />
-          <button id="record-hotkey-mute-btn">Record</button>
-        </div>
-        <small id="hotkey-mute-status">Current: F4</small>
-      </div>
-
-      <!-- Buttons -->
-      <div class="buttons">
-        <button id="save-btn" class="primary">Save</button>
-        <button id="cancel-btn">Cancel</button>
-      </div>
-    </div>
-
-    <script type="module" src="/src/main.js"></script>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

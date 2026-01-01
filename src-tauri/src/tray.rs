@@ -2,7 +2,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{TrayIcon, TrayIconBuilder},
-    AppHandle, Manager, Runtime, WebviewWindowBuilder,
+    AppHandle, Manager, Runtime,
 };
 
 use crate::settings::RecordingState;
@@ -10,9 +10,9 @@ use crate::settings::RecordingState;
 pub const TRAY_ID: &str = "main";
 
 pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {
-    let settings_i = MenuItem::with_id(app, "settings", "Settings...", true, None::<&str>)?;
+    let open_i = MenuItem::with_id(app, "open", "Open Whisper to Me", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit Whisper to Me", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&settings_i, &quit_i])?;
+    let menu = Menu::with_items(app, &[&open_i, &quit_i])?;
 
     let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(load_tray_icon(RecordingState::Idle)?)
@@ -20,8 +20,8 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>>
         .tooltip("Whisper to Me - Ready (Press F2 to record)")
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "settings" => {
-                open_settings_window(app);
+            "open" => {
+                show_main_window(app);
             }
             "quit" => {
                 app.exit(0);
@@ -75,21 +75,9 @@ pub fn update_tray_state<R: Runtime>(
     Ok(())
 }
 
-pub fn open_settings_window<R: Runtime>(app: &AppHandle<R>) {
-    if let Some(window) = app.get_webview_window("settings") {
+pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
         let _ = window.set_focus();
-    } else {
-        // Create settings window with devtools enabled in debug builds
-        if let Ok(window) =
-            WebviewWindowBuilder::new(app, "settings", tauri::WebviewUrl::App("index.html".into()))
-                .title("Whisper to Me - Settings")
-                .inner_size(400.0, 380.0)
-                .resizable(false)
-                .build()
-        {
-            // Open devtools automatically in debug builds
-            #[cfg(debug_assertions)]
-            window.open_devtools();
-        }
     }
 }
