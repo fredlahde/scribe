@@ -276,8 +276,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: var(--text-primary);
-  color: white;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color-strong);
   border-radius: var(--radius-cards);
   box-shadow: var(--shadow-lg);
   z-index: 100;
@@ -288,20 +289,20 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 500;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--border-color-strong);
   border-radius: var(--radius-controls);
-  color: white;
+  color: var(--accent-primary);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .btn-undo:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.5);
+  background: var(--bg-hover);
+  border-color: var(--accent-primary);
 }
 
 .btn-undo:active {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--bg-active);
   transform: scale(0.98);
 }
 
