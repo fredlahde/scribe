@@ -64,11 +64,9 @@ function handleDelete(id: number) {
 }
 
 function handleUndo() {
-  const restored = undoDelete();
-  if (!restored) return;
-
-  // Restore the transcription to the list (at the correct position by created_at)
-  restoreTranscription(restored);
+  // undoDelete() notifies all registered callbacks (including restoreTranscription)
+  // so we don't need to call restoreTranscription() explicitly here
+  undoDelete();
 }
 
 function restoreTranscription(transcription: Transcription) {
