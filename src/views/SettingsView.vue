@@ -4,6 +4,7 @@ import { load } from "@tauri-apps/plugin-store";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { useRouter } from "vue-router";
+import { DEFAULT_HOTKEYS, STORE_KEYS, SETTINGS_STORE_FILE } from "../constants";
 
 const router = useRouter();
 
@@ -16,9 +17,9 @@ interface Settings {
 }
 
 const settings = ref<Settings>({
-  hotkey: "F2",
+  hotkey: DEFAULT_HOTKEYS.ENGLISH,
   hotkey_de: "",
-  hotkey_mute: "F4",
+  hotkey_mute: DEFAULT_HOTKEYS.MUTE,
   model_path: null,
   audio_device: "",
 });
@@ -33,6 +34,7 @@ let store: any = null;
 const audioDevices = ref<string[]>([]);
 const isRefreshingDevices = ref(false);
 const saveError = ref<string | null>(null);
+const isSaving = ref(false);
 
 const hotkeyInputEn = ref<HTMLInputElement | null>(null);
 const hotkeyInputDe = ref<HTMLInputElement | null>(null);
@@ -71,13 +73,13 @@ async function loadAudioDevices() {
 }
 
 onMounted(async () => {
-  store = await load("settings.json");
+  store = await load(SETTINGS_STORE_FILE);
 
-  const savedHotkey = await store.get("hotkey");
-  const savedHotkeyDe = await store.get("hotkey_de");
-  const savedHotkeyMute = await store.get("hotkey_mute");
-  const savedModelPath = await store.get("model_path");
-  const savedAudioDevice = await store.get("audio_device");
+  const savedHotkey = await store.get(STORE_KEYS.HOTKEY);
+  const savedHotkeyDe = await store.get(STORE_KEYS.HOTKEY_DE);
+  const savedHotkeyMute = await store.get(STORE_KEYS.HOTKEY_MUTE);
+  const savedModelPath = await store.get(STORE_KEYS.MODEL_PATH);
+  const savedAudioDevice = await store.get(STORE_KEYS.AUDIO_DEVICE);
 
   if (typeof savedHotkey === "string") {
     settings.value.hotkey = savedHotkey;
@@ -182,42 +184,47 @@ function handleKeydown(e: KeyboardEvent, type: "en" | "de" | "mute") {
 }
 
 async function saveSettings() {
-  if (!store) return;
+  if (!store || isSaving.value) return;
 
+  isSaving.value = true;
   saveError.value = null;
 
-  if (settings.value.audio_device) {
-    try {
-      const isValid = await invoke<boolean>("validate_audio_device", {
-        deviceName: settings.value.audio_device,
-      });
-      if (!isValid) {
-        saveError.value = `Audio device "${settings.value.audio_device}" is no longer available.`;
+  try {
+    if (settings.value.audio_device) {
+      try {
+        const isValid = await invoke<boolean>("validate_audio_device", {
+          deviceName: settings.value.audio_device,
+        });
+        if (!isValid) {
+          saveError.value = `Audio device "${settings.value.audio_device}" is no longer available.`;
+          return;
+        }
+      } catch (e) {
+        console.error("Failed to validate audio device:", e);
+        saveError.value = String(e);
         return;
       }
+    }
+
+    await store.set(STORE_KEYS.HOTKEY, settings.value.hotkey);
+    await store.set(STORE_KEYS.HOTKEY_DE, settings.value.hotkey_de || "");
+    await store.set(STORE_KEYS.HOTKEY_MUTE, settings.value.hotkey_mute || DEFAULT_HOTKEYS.MUTE);
+    await store.set(STORE_KEYS.MODEL_PATH, settings.value.model_path);
+    await store.set(STORE_KEYS.AUDIO_DEVICE, settings.value.audio_device || "");
+    await store.save();
+
+    try {
+      await invoke("reload_settings");
     } catch (e) {
-      console.error("Failed to validate audio device:", e);
+      console.error("Failed to reload settings:", e);
       saveError.value = String(e);
       return;
     }
+
+    router.push("/");
+  } finally {
+    isSaving.value = false;
   }
-
-  await store.set("hotkey", settings.value.hotkey);
-  await store.set("hotkey_de", settings.value.hotkey_de || "");
-  await store.set("hotkey_mute", settings.value.hotkey_mute || "F4");
-  await store.set("model_path", settings.value.model_path);
-  await store.set("audio_device", settings.value.audio_device || "");
-  await store.save();
-
-  try {
-    await invoke("reload_settings");
-  } catch (e) {
-    console.error("Failed to reload settings:", e);
-    saveError.value = String(e);
-    return;
-  }
-
-  router.push("/");
 }
 
 function cancel() {
@@ -340,7 +347,9 @@ function getFilename(path: string | null): string {
     <!-- Actions -->
     <div class="actions">
       <button class="btn" @click="cancel">Cancel</button>
-      <button class="btn btn-primary" @click="saveSettings">Save</button>
+      <button class="btn btn-primary" @click="saveSettings" :disabled="isSaving">
+        {{ isSaving ? "Saving..." : "Save" }}
+      </button>
     </div>
   </div>
 </template>

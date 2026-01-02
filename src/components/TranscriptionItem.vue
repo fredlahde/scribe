@@ -39,7 +39,7 @@ const duration = computed(() => {
   return `${(props.transcription.duration_ms / 1000).toFixed(1)}s`;
 });
 
-async function handleCopy() {
+function handleCopy() {
   emit("copy", props.transcription.text);
   showCopied.value = true;
   setTimeout(() => { showCopied.value = false; }, 1500);
