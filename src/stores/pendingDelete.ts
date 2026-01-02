@@ -36,13 +36,20 @@ async function permanentlyDelete(id: number): Promise<void> {
 }
 
 // Chain a deletion operation to ensure proper ordering
-function queueDeletion(id: number): Promise<void> {
-  const deletion = deletionInProgress.then(() => permanentlyDelete(id)).catch((e) => {
-    // Log but don't break the chain
-    console.error("Deletion failed for id:", id, e);
+async function queueDeletion(id: number): Promise<void> {
+  // Wait for the previous deletion to complete before starting this one
+  await deletionInProgress.catch(() => {
+    // Ignore previous errors - we still want to process this deletion
   });
-  deletionInProgress = deletion;
-  return deletion;
+  
+  // Start this deletion and track it for ordering
+  const thisDeletion = permanentlyDelete(id);
+  deletionInProgress = thisDeletion.catch(() => {
+    // Don't break the chain if this deletion fails
+  });
+  
+  // Await and throw if this specific deletion fails
+  return thisDeletion;
 }
 
 export function usePendingDelete() {
@@ -71,12 +78,13 @@ export function usePendingDelete() {
     // Set up undo timer for the new deletion
     const timeoutId = setTimeout(async () => {
       if (pendingDelete.value?.transcription.id === transcription.id) {
-        // Clear state first to prevent race conditions where user sees inconsistent UI
+        // Capture the transcription and clear state first to update UI immediately
         const toDelete = pendingDelete.value.transcription;
         pendingDelete.value = null;
 
+        // Use queueDeletion for proper ordering, with error recovery
         try {
-          await permanentlyDelete(toDelete.id);
+          await queueDeletion(toDelete.id);
         } catch (e) {
           console.error("Failed to delete after timeout:", e);
           // On failure, notify all registered callbacks to restore the item

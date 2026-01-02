@@ -87,7 +87,9 @@ onMounted(async () => {
   if (typeof savedHotkeyMute === "string") {
     settings.value.hotkey_mute = savedHotkeyMute;
   }
-  if (savedModelPath) settings.value.model_path = savedModelPath as string;
+  if (typeof savedModelPath === "string") {
+    settings.value.model_path = savedModelPath;
+  }
   if (typeof savedAudioDevice === "string") {
     settings.value.audio_device = savedAudioDevice;
   }
