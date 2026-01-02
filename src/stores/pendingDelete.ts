@@ -69,21 +69,25 @@ export function usePendingDelete() {
     }
 
     // Set up undo timer for the new deletion
-    const timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(async () => {
       if (pendingDelete.value?.transcription.id === transcription.id) {
-        // Timer expired, permanently delete
-        queueDeletion(transcription.id).catch((e) => {
+        // Clear state first to prevent race conditions where user sees inconsistent UI
+        const toDelete = pendingDelete.value.transcription;
+        pendingDelete.value = null;
+
+        try {
+          await permanentlyDelete(toDelete.id);
+        } catch (e) {
           console.error("Failed to delete after timeout:", e);
           // On failure, notify all registered callbacks to restore the item
           restoreCallbacks.forEach((callback) => {
             try {
-              callback(transcription);
+              callback(toDelete);
             } catch (callbackError) {
               console.error("Restore callback failed:", callbackError);
             }
           });
-        });
-        pendingDelete.value = null;
+        }
       }
     }, UNDO_TIMEOUT_MS);
 
