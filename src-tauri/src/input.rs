@@ -27,3 +27,9 @@ impl TextInput {
         Ok(())
     }
 }
+
+impl Default for TextInput {
+    fn default() -> Self {
+        Self::new()
+    }
+}

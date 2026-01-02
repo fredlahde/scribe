@@ -17,7 +17,7 @@ use tauri_plugin_store::StoreExt;
 use crate::audio::AudioRecorder;
 use crate::history::{HistoryDb, Transcription};
 use crate::input::TextInput;
-use crate::settings::{AppStateHolder, RecordingState};
+use crate::settings::{AppSettings, AppStateHolder, RecordingState};
 use crate::transcribe::{Language, Transcriber};
 use crate::tray::{create_tray, show_main_window, update_tray_state, TRAY_ID};
 
@@ -53,46 +53,12 @@ async fn disable_shortcuts(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 async fn enable_shortcuts(app: tauri::AppHandle) -> Result<(), String> {
-    // Re-register all shortcuts from current settings
     let store = app
         .store("settings.json")
         .map_err(|e| format!("Failed to open store: {}", e))?;
 
-    let hotkey_en = store
-        .get("hotkey")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| "F2".to_string());
-
-    let hotkey_de = store
-        .get("hotkey_de")
-        .and_then(|v| v.as_str().map(String::from));
-
-    let hotkey_mute = store
-        .get("hotkey_mute")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| "F4".to_string());
-
-    // Re-register English shortcut
-    if let Err(e) = setup_shortcut(&app, &hotkey_en, Language::English) {
-        eprintln!("Failed to setup English shortcut: {}", e);
-        return Err(format!("Failed to setup shortcut: {}", e));
-    }
-
-    // Re-register German shortcut if configured
-    if let Some(ref hotkey) = hotkey_de {
-        if !hotkey.is_empty() {
-            if let Err(e) = setup_shortcut(&app, hotkey, Language::German) {
-                eprintln!("Failed to setup German shortcut: {}", e);
-                return Err(format!("Failed to setup German shortcut: {}", e));
-            }
-        }
-    }
-
-    // Re-register mute shortcut
-    if let Err(e) = setup_mute_shortcut(&app, &hotkey_mute) {
-        eprintln!("Failed to setup mute shortcut: {}", e);
-        return Err(format!("Failed to setup mute shortcut: {}", e));
-    }
+    let settings = AppSettings::load(&store);
+    register_all_shortcuts(&app, &settings)?;
 
     eprintln!("[Shortcuts re-enabled]");
     Ok(())
@@ -100,76 +66,30 @@ async fn enable_shortcuts(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
-    // Load new settings from store
     let store = app
         .store("settings.json")
         .map_err(|e| format!("Failed to open store: {}", e))?;
 
-    let hotkey_en = store
-        .get("hotkey")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| "F2".to_string());
-
-    let hotkey_de = store
-        .get("hotkey_de")
-        .and_then(|v| v.as_str().map(String::from));
-
-    let hotkey_mute = store
-        .get("hotkey_mute")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| "F4".to_string());
-
-    let model_path = store
-        .get("model_path")
-        .and_then(|v| v.as_str().map(String::from));
-
-    let audio_device = store
-        .get("audio_device")
-        .and_then(|v| v.as_str().map(String::from));
+    let settings = AppSettings::load(&store);
 
     // Switch audio device if changed
     {
         let resources = app.state::<Arc<Mutex<AppResources>>>();
         let mut res = resources.lock().unwrap();
-        if let Err(e) = res.recorder.set_device(audio_device.as_deref()) {
+        if let Err(e) = res.recorder.set_device(settings.audio_device.as_deref()) {
             eprintln!("[Failed to switch audio device: {}]", e);
             return Err(format!("Failed to switch audio device: {}", e));
         }
     }
 
-    // Unregister all shortcuts and re-register with new hotkeys
-    let shortcut_manager = app.global_shortcut();
-    shortcut_manager
-        .unregister_all()
-        .map_err(|e| format!("Failed to unregister shortcuts: {}", e))?;
-
-    // Re-register English shortcut
-    if let Err(e) = setup_shortcut(&app, &hotkey_en, Language::English) {
-        eprintln!("Failed to setup English shortcut: {}", e);
-        return Err(format!("Failed to setup shortcut: {}", e));
-    }
-
-    // Re-register German shortcut if configured
-    if let Some(ref hotkey) = hotkey_de {
-        if !hotkey.is_empty() {
-            if let Err(e) = setup_shortcut(&app, hotkey, Language::German) {
-                eprintln!("Failed to setup German shortcut: {}", e);
-                return Err(format!("Failed to setup German shortcut: {}", e));
-            }
-        }
-    }
-
-    // Re-register mute shortcut
-    if let Err(e) = setup_mute_shortcut(&app, &hotkey_mute) {
-        eprintln!("Failed to setup mute shortcut: {}", e);
-        return Err(format!("Failed to setup mute shortcut: {}", e));
-    }
+    // Re-register all shortcuts with new hotkeys
+    register_all_shortcuts(&app, &settings)?;
 
     // Reload transcriber if model path changed
-    if let Some(path) = model_path {
+    if let Some(ref path) = settings.model_path {
         let resources = app.state::<Arc<Mutex<AppResources>>>();
         let mut res = resources.lock().unwrap();
-        match Transcriber::new(&path) {
+        match Transcriber::new(path) {
             Ok(t) => {
                 res.transcriber = Some(t);
                 eprintln!("[Model loaded: {}]", path);
@@ -242,6 +162,43 @@ fn setup_mute_shortcut(
         })?;
 
     eprintln!("[Mute shortcut registered: {}]", shortcut_str);
+    Ok(())
+}
+
+/// Register all shortcuts (English, German if configured, and mute) from settings.
+/// This unregisters all existing shortcuts first.
+fn register_all_shortcuts(
+    app: &tauri::AppHandle,
+    settings: &AppSettings,
+) -> Result<(), String> {
+    // Unregister all shortcuts first
+    let shortcut_manager = app.global_shortcut();
+    shortcut_manager
+        .unregister_all()
+        .map_err(|e| format!("failed to unregister shortcuts: {}", e))?;
+
+    // Register English shortcut
+    if let Err(e) = setup_shortcut(app, &settings.hotkey_en, Language::English) {
+        eprintln!("[Failed to setup English shortcut: {}]", e);
+        return Err(format!("failed to setup English shortcut: {}", e));
+    }
+
+    // Register German shortcut if configured
+    if let Some(ref hotkey) = settings.hotkey_de {
+        if !hotkey.is_empty() {
+            if let Err(e) = setup_shortcut(app, hotkey, Language::German) {
+                eprintln!("[Failed to setup German shortcut: {}]", e);
+                return Err(format!("failed to setup German shortcut: {}", e));
+            }
+        }
+    }
+
+    // Register mute shortcut
+    if let Err(e) = setup_mute_shortcut(app, &settings.hotkey_mute) {
+        eprintln!("[Failed to setup mute shortcut: {}]", e);
+        return Err(format!("failed to setup mute shortcut: {}", e));
+    }
+
     Ok(())
 }
 
@@ -334,9 +291,124 @@ fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
     }
 }
 
-fn handle_recording_stop(app: &tauri::AppHandle) {
-    let app_clone = app.clone();
+/// Update tray icon to reflect the given state
+fn set_tray_state(app: &tauri::AppHandle, state: RecordingState) {
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        let _ = update_tray_state(&tray, state);
+    }
+}
 
+/// Process transcription result: save to history, type text, and notify user
+fn process_transcription_result(
+    app: &tauri::AppHandle,
+    resources: &Arc<Mutex<AppResources>>,
+    text: String,
+    language: Language,
+    sample_count: usize,
+) {
+    if text.is_empty() {
+        eprintln!("[No speech detected]");
+        return;
+    }
+
+    eprintln!("[Transcribed: {} chars]", text.len());
+
+    // Save to history database
+    let lang_str = match language {
+        Language::English => "en",
+        Language::German => "de",
+    };
+    let history_db = app.state::<Arc<HistoryDb>>();
+    match history_db.save_transcription(&text, lang_str, sample_count) {
+        Ok(record) => {
+            eprintln!("[Saved to history: id={}]", record.id);
+            // Emit event for frontend to update
+            let _ = app.emit("transcription-added", &record);
+        }
+        Err(e) => {
+            eprintln!("[Failed to save to history: {}]", e);
+        }
+    }
+
+    // Type the text
+    {
+        let mut res = resources.lock().unwrap();
+        if let Err(e) = res.text_input.type_text(&text) {
+            eprintln!("[Type error: {}]", e);
+        }
+    }
+
+    // Show notification
+    let _ = app
+        .notification()
+        .builder()
+        .title("Scribe")
+        .body("Transcription complete")
+        .show();
+}
+
+/// Stop recording, run transcription, and handle the result.
+/// This runs in a background thread.
+fn run_transcription(app: tauri::AppHandle) {
+    let resources = app.state::<Arc<Mutex<AppResources>>>();
+
+    // Stop recording and get samples + language
+    let (audio, language) = {
+        let res = resources.lock().unwrap();
+
+        // Update state to Transcribing
+        res.state.set(RecordingState::Transcribing);
+        set_tray_state(&app, RecordingState::Transcribing);
+
+        let language = res.pending_language;
+
+        match res.recorder.stop() {
+            Ok(a) => (a, language),
+            Err(e) => {
+                eprintln!("[Stop error: {}]", e);
+                res.state.set(RecordingState::Idle);
+                set_tray_state(&app, RecordingState::Idle);
+                return;
+            }
+        }
+    };
+
+    eprintln!("[Transcribing {} samples ({:?})...]", audio.len(), language);
+
+    if audio.is_empty() {
+        eprintln!("[No audio captured]");
+    } else {
+        let sample_count = audio.len();
+
+        // Transcribe
+        let transcription = {
+            let res = resources.lock().unwrap();
+            if let Some(ref transcriber) = res.transcriber {
+                transcriber.transcribe(&audio, language)
+            } else {
+                Ok(String::new())
+            }
+        };
+
+        match transcription {
+            Ok(text) => {
+                process_transcription_result(&app, &resources, text, language, sample_count);
+            }
+            Err(e) => {
+                eprintln!("[Transcription error: {}]", e);
+            }
+        }
+    }
+
+    // Reset state to Idle
+    {
+        let res = resources.lock().unwrap();
+        res.state.set(RecordingState::Idle);
+    }
+    set_tray_state(&app, RecordingState::Idle);
+}
+
+fn handle_recording_stop(app: &tauri::AppHandle) {
     // Check if we're actually recording before spawning the thread
     {
         let resources = app.state::<Arc<Mutex<AppResources>>>();
@@ -348,111 +420,9 @@ fn handle_recording_stop(app: &tauri::AppHandle) {
     }
 
     // Spawn a thread to handle transcription (it's blocking)
+    let app_clone = app.clone();
     thread::spawn(move || {
-        let resources = app_clone.state::<Arc<Mutex<AppResources>>>();
-
-        // Stop recording and get samples + language
-        let (audio, language) = {
-            let res = resources.lock().unwrap();
-
-            // Update state to Transcribing
-            res.state.set(RecordingState::Transcribing);
-
-            // Update tray icon
-            if let Some(tray) = app_clone.tray_by_id(TRAY_ID) {
-                let _ = update_tray_state(&tray, RecordingState::Transcribing);
-            }
-
-            let language = res.pending_language;
-
-            match res.recorder.stop() {
-                Ok(a) => (a, language),
-                Err(e) => {
-                    eprintln!("[Stop error: {}]", e);
-                    res.state.set(RecordingState::Idle);
-                    if let Some(tray) = app_clone.tray_by_id(TRAY_ID) {
-                        let _ = update_tray_state(&tray, RecordingState::Idle);
-                    }
-                    return;
-                }
-            }
-        };
-
-        eprintln!("[Transcribing {} samples ({:?})...]", audio.len(), language);
-
-        if !audio.is_empty() {
-            // Store sample count inside the check since it's only used here
-            let sample_count = audio.len();
-
-            // Transcribe
-            let transcription = {
-                let res = resources.lock().unwrap();
-                if let Some(ref transcriber) = res.transcriber {
-                    transcriber.transcribe(&audio, language)
-                } else {
-                    Ok(String::new())
-                }
-            };
-
-            match transcription {
-                Ok(text) => {
-                    if !text.is_empty() {
-                        eprintln!("[Transcribed: {} chars]", text.len());
-
-                        // Save to history database
-                        let lang_str = match language {
-                            Language::English => "en",
-                            Language::German => "de",
-                        };
-                        let history_db = app_clone.state::<Arc<HistoryDb>>();
-                        match history_db.save_transcription(&text, lang_str, sample_count) {
-                            Ok(record) => {
-                                eprintln!("[Saved to history: id={}]", record.id);
-                                // Emit event for frontend to update
-                                let _ = app_clone.emit("transcription-added", &record);
-                            }
-                            Err(e) => {
-                                eprintln!("[Failed to save to history: {}]", e);
-                            }
-                        }
-
-                        // Type the text
-                        {
-                            let mut res = resources.lock().unwrap();
-                            if let Err(e) = res.text_input.type_text(&text) {
-                                eprintln!("[Type error: {}]", e);
-                            }
-                        }
-
-                        // Show notification
-                        let _ = app_clone
-                            .notification()
-                            .builder()
-                            .title("Scribe")
-                            .body("Transcription complete")
-                            .show();
-                    } else {
-                        eprintln!("[No speech detected]");
-                    }
-                }
-                Err(e) => {
-                    eprintln!("[Transcription error: {}]", e);
-                }
-            }
-        } else {
-            eprintln!("[No audio captured]");
-        }
-
-        // Reset state to Idle
-        {
-            let res = resources.lock().unwrap();
-            res.state.set(RecordingState::Idle);
-        }
-
-        // Update tray icon
-        if let Some(tray) = app_clone.tray_by_id("main") {
-            let _ = update_tray_state(&tray, RecordingState::Idle);
-        }
+        run_transcription(app_clone);
     });
 }
 
@@ -481,33 +451,17 @@ pub fn run() {
         .setup(|app| {
             // Load settings from store
             let store = app.store("settings.json")?;
-            let hotkey_en = store
-                .get("hotkey")
-                .and_then(|v| v.as_str().map(String::from))
-                .unwrap_or_else(|| "F2".to_string());
-            let hotkey_de = store
-                .get("hotkey_de")
-                .and_then(|v| v.as_str().map(String::from));
-            let hotkey_mute = store
-                .get("hotkey_mute")
-                .and_then(|v| v.as_str().map(String::from))
-                .unwrap_or_else(|| "F4".to_string());
-            let model_path = store
-                .get("model_path")
-                .and_then(|v| v.as_str().map(String::from));
-            let audio_device = store
-                .get("audio_device")
-                .and_then(|v| v.as_str().map(String::from));
+            let settings = AppSettings::load(&store);
 
             // Initialize audio recorder with saved device (or default)
-            let recorder = AudioRecorder::new(audio_device.as_deref())
+            let recorder = AudioRecorder::new(settings.audio_device.as_deref())
                 .map_err(|e| format!("Failed to init audio: {}", e))?;
 
             // Initialize text input (lazy - actual Enigo init deferred until use)
             let text_input = TextInput::new();
 
             // Initialize transcriber if model path is set
-            let transcriber = if let Some(ref path) = model_path {
+            let transcriber = if let Some(ref path) = settings.model_path {
                 match Transcriber::new(path) {
                     Ok(t) => {
                         eprintln!("[Model loaded: {}]", path);
@@ -544,12 +498,12 @@ pub fn run() {
             let _tray = create_tray(app.handle())?;
 
             // Setup global shortcuts
-            if let Err(e) = setup_shortcut(app.handle(), &hotkey_en, Language::English) {
+            if let Err(e) = setup_shortcut(app.handle(), &settings.hotkey_en, Language::English) {
                 eprintln!("[Failed to setup English shortcut: {}]", e);
             }
 
             // Setup German shortcut if configured
-            if let Some(ref hotkey) = hotkey_de {
+            if let Some(ref hotkey) = settings.hotkey_de {
                 if !hotkey.is_empty() {
                     if let Err(e) = setup_shortcut(app.handle(), hotkey, Language::German) {
                         eprintln!("[Failed to setup German shortcut: {}]", e);
@@ -558,7 +512,7 @@ pub fn run() {
             }
 
             // Setup mute shortcut
-            if let Err(e) = setup_mute_shortcut(app.handle(), &hotkey_mute) {
+            if let Err(e) = setup_mute_shortcut(app.handle(), &settings.hotkey_mute) {
                 eprintln!("[Failed to setup mute shortcut: {}]", e);
             }
 

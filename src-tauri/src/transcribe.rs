@@ -2,6 +2,9 @@ use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextPar
 
 use crate::error::{Error, Result};
 
+/// Sample rate required by Whisper (16kHz)
+pub const WHISPER_SAMPLE_RATE: u32 = 16000;
+
 #[derive(Debug, Clone, Copy)]
 pub enum Language {
     English,

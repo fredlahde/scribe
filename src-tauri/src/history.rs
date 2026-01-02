@@ -8,12 +8,10 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
+use crate::transcribe::WHISPER_SAMPLE_RATE;
 
 /// Maximum number of transcriptions to keep in history
 const MAX_HISTORY_SIZE: i64 = 50;
-
-/// Sample rate of Whisper audio (16kHz)
-const WHISPER_SAMPLE_RATE: f64 = 16000.0;
 
 /// A single transcription record
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,7 +80,7 @@ impl HistoryDb {
         let mut conn = self.conn.lock().unwrap();
 
         // Calculate duration from sample count (16kHz sample rate)
-        let duration_ms = ((sample_count as f64 / WHISPER_SAMPLE_RATE) * 1000.0) as i64;
+        let duration_ms = ((sample_count as f64 / WHISPER_SAMPLE_RATE as f64) * 1000.0) as i64;
 
         // Count words using unicode-aware splitting
         let word_count = text

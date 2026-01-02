@@ -5,8 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::error::{Error, Result};
-
-const WHISPER_SAMPLE_RATE: u32 = 16000;
+use crate::transcribe::WHISPER_SAMPLE_RATE;
 
 /// Helper to get device name from description
 fn get_device_name(device: &Device) -> String {
@@ -56,7 +55,7 @@ fn find_device_by_name(device_name: Option<&str>) -> Result<Device> {
 
     match device_name {
         // Treat empty string like `None` (system default), consistent with `device_exists`
-        Some(name) if name.is_empty() => {
+        Some("") => {
             return host
                 .default_input_device()
                 .ok_or_else(|| Error::Audio("no input device available".to_string()));
