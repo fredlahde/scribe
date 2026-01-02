@@ -397,7 +397,7 @@ fn handle_recording_stop(app: &tauri::AppHandle) {
             match transcription {
                 Ok(text) => {
                     if !text.is_empty() {
-                        eprintln!("[Transcribed: {}]", text);
+                        eprintln!("[Transcribed: {} chars]", text.len());
 
                         // Save to history database
                         let lang_str = match language {
