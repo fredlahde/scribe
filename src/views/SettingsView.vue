@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from "vue";
-import { load } from "@tauri-apps/plugin-store";
+import { load, type Store } from "@tauri-apps/plugin-store";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { useRouter } from "vue-router";
@@ -27,8 +27,7 @@ const isRecordingHotkey = ref(false);
 const isRecordingHotkeyDe = ref(false);
 const isRecordingHotkeyMute = ref(false);
 const showModelWarning = ref(false);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let store: any = null;
+let store: Store | null = null;
 
 const audioDevices = ref<string[]>([]);
 const isRefreshingDevices = ref(false);
@@ -88,7 +87,7 @@ onMounted(async () => {
   if (typeof savedHotkeyMute === "string") {
     settings.value.hotkey_mute = savedHotkeyMute;
   }
-  if (savedModelPath) settings.value.model_path = savedModelPath;
+  if (savedModelPath) settings.value.model_path = savedModelPath as string;
   if (typeof savedAudioDevice === "string") {
     settings.value.audio_device = savedAudioDevice;
   }

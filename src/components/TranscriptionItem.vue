@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onUnmounted } from "vue";
 import type { Transcription } from "../stores/pendingDelete";
 
 const props = defineProps<{
@@ -12,7 +12,17 @@ const emit = defineEmits<{
 }>();
 
 const showCopied = ref(false);
+let copyTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
+onUnmounted(() => {
+  if (copyTimeoutId) {
+    clearTimeout(copyTimeoutId);
+  }
+});
+
+// Note: relativeTime uses new Date() which is not reactive. The time display
+// won't automatically update (e.g., "Just now" to "1m ago"). This is a common
+// and acceptable limitation for list items - the value updates on next render.
 const relativeTime = computed(() => {
   const now = new Date();
   const created = new Date(props.transcription.created_at);
@@ -42,7 +52,10 @@ const duration = computed(() => {
 async function handleCopy() {
   emit("copy", props.transcription.text);
   showCopied.value = true;
-  setTimeout(() => { showCopied.value = false; }, 1500);
+  if (copyTimeoutId) {
+    clearTimeout(copyTimeoutId);
+  }
+  copyTimeoutId = setTimeout(() => { showCopied.value = false; }, 1500);
 }
 
 function handleDelete() {
