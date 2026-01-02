@@ -42,6 +42,17 @@ impl HistoryDb {
         let conn = Connection::open(&db_path)
             .map_err(|e| Error::Database(format!("failed to open database: {}", e)))?;
 
+        // Set restrictive file permissions (owner read/write only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = std::fs::metadata(&db_path) {
+                let mut perms = metadata.permissions();
+                perms.set_mode(0o600);
+                let _ = std::fs::set_permissions(&db_path, perms);
+            }
+        }
+
         // Initialize schema
         conn.execute(
             "CREATE TABLE IF NOT EXISTS transcriptions (
