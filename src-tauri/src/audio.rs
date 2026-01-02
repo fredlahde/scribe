@@ -177,7 +177,8 @@ impl AudioRecorder {
         std::thread::sleep(std::time::Duration::from_millis(150));
         self.recording.store(false, Ordering::SeqCst);
 
-        let raw_samples = self.samples.lock().unwrap().clone();
+        // Take ownership of samples, leaving an empty buffer (clears sensitive audio data)
+        let raw_samples = std::mem::take(&mut *self.samples.lock().unwrap());
         eprintln!("[Raw samples collected: {}]", raw_samples.len());
 
         if raw_samples.is_empty() {
