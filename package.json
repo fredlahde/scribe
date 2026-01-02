@@ -3,6 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "license": "(MIT OR Apache-2.0)",
+  "description": "A Tauri-based push-to-talk voice transcription app for macOS",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flahde/scribe"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",

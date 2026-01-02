@@ -2,6 +2,9 @@
 name = "scribe"
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "A Tauri-based push-to-talk voice transcription app for macOS"
+repository = "https://github.com/flahde/scribe"
 
 [lib]
 name = "scribe_lib"
