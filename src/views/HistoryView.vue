@@ -13,7 +13,6 @@ const transcriptions = ref<Transcription[]>([]);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 
-// Use shared pending delete store (persists across navigation)
 const {
   pendingDelete,
   scheduleDelete,
@@ -22,7 +21,6 @@ const {
   unregisterCallbacks,
 } = usePendingDelete();
 
-// Event listener cleanup
 let unlistenTranscriptionAdded: UnlistenFn | null = null;
 
 const hasTranscriptions = computed(() => transcriptions.value.length > 0);
@@ -50,35 +48,25 @@ async function handleCopy(text: string) {
 }
 
 function handleDelete(id: number) {
-  // Find the transcription to delete
   const index = transcriptions.value.findIndex((t) => t.id === id);
   if (index === -1) return;
 
   const transcription = transcriptions.value[index];
-
-  // Remove from list immediately
   transcriptions.value.splice(index, 1);
-
-  // Schedule deletion with undo capability (handles previous pending delete internally)
   scheduleDelete(transcription);
 }
 
 function handleUndo() {
-  // undoDelete() notifies all registered callbacks (including restoreTranscription)
-  // so we don't need to call restoreTranscription() explicitly here
   undoDelete();
 }
 
 function restoreTranscription(transcription: Transcription) {
-  // Use created_at as primary sort key, id as secondary for deterministic ordering
   const insertIndex = transcriptions.value.findIndex((t) => {
     const tCreated = new Date(t.created_at).getTime();
     const restoreCreated = new Date(transcription.created_at).getTime();
-    // If timestamps differ, sort by timestamp (newer first)
     if (tCreated !== restoreCreated) {
       return tCreated < restoreCreated;
     }
-    // If timestamps are identical, use id as tiebreaker (higher id = newer)
     return t.id < transcription.id;
   });
 
@@ -89,82 +77,68 @@ function restoreTranscription(transcription: Transcription) {
   }
 }
 
-// Unique key for this component's callback registration
 const CALLBACK_KEY = "history-view";
 
 onMounted(async () => {
   await fetchHistory();
-
-  // Register callback for restoring items when undo is triggered from elsewhere
   registerCallbacks(CALLBACK_KEY, restoreTranscription);
 
-  // Listen for new transcriptions
   unlistenTranscriptionAdded = await listen<Transcription>(
     "transcription-added",
     (event) => {
-      // Prepend new transcription to the list
       transcriptions.value.unshift(event.payload);
     }
   );
 });
 
 onUnmounted(() => {
-  // Cleanup event listener
   if (unlistenTranscriptionAdded) {
     unlistenTranscriptionAdded();
   }
-
-  // Unregister callbacks but DON'T delete pending items - they persist and can be undone
-  // when the user navigates back to the history view
   unregisterCallbacks(CALLBACK_KEY);
 });
 </script>
 
 <template>
   <div class="history-view">
-    <!-- Loading state -->
-    <div v-if="isLoading" class="loading-state">
-      <div class="loading-spinner"></div>
-      <p>Loading history...</p>
+    <!-- Loading -->
+    <div v-if="isLoading" class="state-box">
+      <div class="spinner"></div>
+      <p class="state-text">Loading...</p>
     </div>
 
-    <!-- Error state -->
-    <div v-else-if="error" class="error-state">
-      <p>{{ error }}</p>
+    <!-- Error -->
+    <div v-else-if="error" class="state-box">
+      <div class="state-icon state-icon-error">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="m15 9-6 6"/>
+          <path d="m9 9 6 6"/>
+        </svg>
+      </div>
+      <p class="state-text">{{ error }}</p>
       <button class="btn btn-primary" @click="fetchHistory">Retry</button>
     </div>
 
-    <!-- Empty state -->
-    <div v-else-if="!hasTranscriptions" class="empty-state">
-      <div class="empty-icon">
-        <svg
-          width="48"
-          height="48"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-          <line x1="12" x2="12" y1="19" y2="22"></line>
+    <!-- Empty -->
+    <div v-else-if="!hasTranscriptions" class="state-box">
+      <div class="state-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" x2="12" y1="19" y2="22"/>
         </svg>
       </div>
-      <h2 class="empty-title">No transcriptions yet</h2>
-      <p class="empty-description">
-        Press your hotkey to start recording. Your transcriptions will appear
-        here.
-      </p>
+      <h3 class="state-title">No transcriptions yet</h3>
+      <p class="state-text">Press your hotkey to start recording</p>
     </div>
 
-    <!-- Transcription list -->
-    <div v-else class="transcription-list">
+    <!-- List -->
+    <div v-else class="list">
       <TranscriptionItem
-        v-for="transcription in transcriptions"
-        :key="transcription.id"
-        :transcription="transcription"
+        v-for="item in transcriptions"
+        :key="item.id"
+        :transcription="item"
         @copy="handleCopy"
         @delete="handleDelete"
       />
@@ -172,9 +146,9 @@ onUnmounted(() => {
 
     <!-- Undo toast -->
     <Transition name="toast">
-      <div v-if="pendingDelete" class="undo-toast">
-        <span>Transcription deleted</span>
-        <button class="btn-undo" @click="handleUndo">Undo</button>
+      <div v-if="pendingDelete" class="toast">
+        <span>Deleted</span>
+        <button class="toast-btn" @click="handleUndo">Undo</button>
       </div>
     </Transition>
   </div>
@@ -185,134 +159,105 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  position: relative;
 }
 
-.transcription-list {
-  flex: 1;
-  overflow-y: auto;
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-/* Loading state */
-.loading-state {
+/* State boxes */
+.state-box {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
   gap: 12px;
-  color: var(--text-secondary);
-  animation: fadeIn var(--transition-normal);
 }
 
-.loading-spinner {
+.state-icon {
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.state-icon-error {
+  color: var(--danger);
+}
+
+.state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.state-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 240px;
+}
+
+/* Spinner */
+.spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid var(--border-color);
-  border-top-color: var(--accent-primary);
+  border: 2px solid var(--border-light);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
-/* Error state */
-.error-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: var(--accent-danger);
-  text-align: center;
-  padding: 32px;
-}
-
-/* Empty state */
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 32px;
-  color: var(--text-secondary);
-  animation: fadeIn var(--transition-normal);
-}
-
-.empty-icon {
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.empty-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.empty-description {
-  font-size: 0.9rem;
-  max-width: 280px;
-  line-height: 1.5;
-}
-
-/* Undo toast */
-.undo-toast {
+/* Toast */
+.toast {
   position: fixed;
-  bottom: 24px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color-strong);
-  border-radius: var(--radius-cards);
+  padding: 10px 14px;
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
+  font-size: 13px;
   z-index: 100;
 }
 
-.btn-undo {
-  padding: 4px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  background: transparent;
-  border: 1px solid var(--border-color-strong);
-  border-radius: var(--radius-controls);
-  color: var(--accent-primary);
+.toast-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--duration-fast) var(--ease);
 }
 
-.btn-undo:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent-primary);
+.toast-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
-.btn-undo:active {
-  background: var(--bg-active);
-  transform: scale(0.98);
-}
-
-/* Toast animation */
 .toast-enter-active,
 .toast-leave-active {
-  transition: all var(--transition-normal);
+  transition: all var(--duration-normal) var(--ease);
 }
 
 .toast-enter-from,
 .toast-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(20px);
+  transform: translateX(-50%) translateY(12px);
 }
 </style>

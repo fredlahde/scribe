@@ -30,17 +30,14 @@ const showModelWarning = ref(false);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let store: any = null;
 
-// Audio devices
 const audioDevices = ref<string[]>([]);
 const isRefreshingDevices = ref(false);
 const saveError = ref<string | null>(null);
 
-// Template refs for hotkey inputs
 const hotkeyInputEn = ref<HTMLInputElement | null>(null);
 const hotkeyInputDe = ref<HTMLInputElement | null>(null);
 const hotkeyInputMute = ref<HTMLInputElement | null>(null);
 
-// Watch recording states to manage focus
 watch(isRecordingHotkey, async (recording) => {
   if (recording) {
     await nextTick();
@@ -82,8 +79,6 @@ onMounted(async () => {
   const savedModelPath = await store.get("model_path");
   const savedAudioDevice = await store.get("audio_device");
 
-  // Explicitly handle empty strings vs null/undefined
-  // A saved empty string means the user cleared the hotkey intentionally
   if (typeof savedHotkey === "string") {
     settings.value.hotkey = savedHotkey;
   }
@@ -95,13 +90,10 @@ onMounted(async () => {
   }
   if (savedModelPath) settings.value.model_path = savedModelPath;
   if (typeof savedAudioDevice === "string") {
-    // Preserve empty string to represent the default audio device, matching backend behavior
     settings.value.audio_device = savedAudioDevice;
   }
 
   showModelWarning.value = !settings.value.model_path;
-
-  // Load available audio devices
   await loadAudioDevices();
 });
 
@@ -109,12 +101,7 @@ async function browseModel() {
   try {
     const selected = await open({
       multiple: false,
-      filters: [
-        {
-          name: "Whisper Model",
-          extensions: ["bin"],
-        },
-      ],
+      filters: [{ name: "Whisper Model", extensions: ["bin"] }],
     });
 
     if (selected) {
@@ -161,7 +148,6 @@ function handleKeydown(e: KeyboardEvent, type: "en" | "de" | "mute") {
   if (key === " ") key = "Space";
   if (key.length === 1) key = key.toUpperCase();
 
-  // Skip modifier-only presses
   if (["Control", "Alt", "Shift", "Meta"].includes(key)) return;
 
   parts.push(key);
@@ -184,14 +170,13 @@ async function saveSettings() {
 
   saveError.value = null;
 
-  // Validate audio device before saving (skip validation for system default)
   if (settings.value.audio_device) {
     try {
       const isValid = await invoke<boolean>("validate_audio_device", {
         deviceName: settings.value.audio_device,
       });
       if (!isValid) {
-        saveError.value = `Audio device "${settings.value.audio_device}" is no longer available. Please select a different device.`;
+        saveError.value = `Audio device "${settings.value.audio_device}" is no longer available.`;
         return;
       }
     } catch (e) {
@@ -222,122 +207,122 @@ async function saveSettings() {
 function cancel() {
   router.push("/");
 }
+
+function getFilename(path: string | null): string {
+  if (!path) return "";
+  return path.split("/").pop() || path;
+}
 </script>
 
 <template>
-  <div class="settings-view">
-    <!-- Warning banner when no model configured -->
+  <div class="settings">
     <div v-if="showModelWarning" class="warning">
-      Please select a Whisper model file to get started.
+      Please select a Whisper model to get started.
     </div>
 
-    <!-- Error banner for save errors -->
     <div v-if="saveError" class="error">
-      Failed to save settings: {{ saveError }}
+      {{ saveError }}
     </div>
 
-    <!-- Model Path -->
-    <div class="setting">
-      <label class="setting-label">Whisper Model:</label>
-      <div class="input-row">
-        <input
-          type="text"
-          class="input"
-          :value="settings.model_path || ''"
-          readonly
-          placeholder="No model selected"
-        />
-        <button class="btn" @click="browseModel">Browse...</button>
+    <!-- Model -->
+    <section class="section">
+      <h2 class="section-title">Whisper Model</h2>
+      <p class="section-desc">Select a .bin model file for transcription</p>
+      <div class="field-row">
+        <div class="model-box" :class="{ empty: !settings.model_path }">
+          <span class="model-name">{{ settings.model_path ? getFilename(settings.model_path) : 'No model selected' }}</span>
+        </div>
+        <button class="btn" @click="browseModel">Browse</button>
       </div>
-      <small class="setting-hint">Select a .bin model file (e.g., ggml-medium.bin)</small>
-    </div>
+    </section>
 
-    <!-- Audio Input Device -->
-    <div class="setting">
-      <label class="setting-label">Audio Input Device:</label>
-      <div class="input-row">
+    <!-- Audio Device -->
+    <section class="section">
+      <h2 class="section-title">Audio Input</h2>
+      <p class="section-desc">Choose your microphone</p>
+      <div class="field-row">
         <select class="input" v-model="settings.audio_device">
           <option value="">System Default</option>
           <option v-for="device in audioDevices" :key="device" :value="device">
             {{ device }}
           </option>
         </select>
-        <button class="btn" @click="loadAudioDevices" :disabled="isRefreshingDevices">
-          {{ isRefreshingDevices ? "..." : "Refresh" }}
+        <button class="btn btn-icon" @click="loadAudioDevices" :disabled="isRefreshingDevices">
+          <svg 
+            width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            :class="{ spinning: isRefreshingDevices }"
+          >
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+          </svg>
         </button>
       </div>
-      <small class="setting-hint">Select which microphone to use for recording</small>
-    </div>
+    </section>
 
-    <!-- English Hotkey -->
-    <div class="setting">
-      <label class="setting-label">Push-to-Talk Hotkey (English):</label>
-      <div class="input-row">
-        <input
-          ref="hotkeyInputEn"
-          type="text"
-          class="input"
-          :value="isRecordingHotkey ? 'Press a key...' : settings.hotkey"
-          readonly
-          tabindex="0"
-          placeholder="Press to record..."
-          @keydown="handleKeydown($event, 'en')"
-        />
-        <button class="btn" @click="startRecordingHotkey('en')">
-          {{ isRecordingHotkey ? "Cancel" : "Record" }}
-        </button>
+    <!-- Hotkeys -->
+    <section class="section">
+      <h2 class="section-title">Hotkeys</h2>
+      <p class="section-desc">Configure push-to-talk shortcuts</p>
+
+      <div class="field">
+        <label class="field-label">English</label>
+        <div class="field-row">
+          <input
+            ref="hotkeyInputEn"
+            type="text"
+            class="input hotkey-input"
+            :class="{ recording: isRecordingHotkey }"
+            :value="isRecordingHotkey ? 'Press a key...' : settings.hotkey"
+            readonly
+            @keydown="handleKeydown($event, 'en')"
+          />
+          <button class="btn" @click="startRecordingHotkey('en')">
+            {{ isRecordingHotkey ? "Cancel" : "Set" }}
+          </button>
+        </div>
       </div>
-      <small class="setting-hint">Current: {{ settings.hotkey }}</small>
-    </div>
 
-    <!-- German Hotkey -->
-    <div class="setting">
-      <label class="setting-label">Push-to-Talk Hotkey (German):</label>
-      <div class="input-row">
-        <input
-          ref="hotkeyInputDe"
-          type="text"
-          class="input"
-          :value="isRecordingHotkeyDe ? 'Press a key...' : (settings.hotkey_de || '')"
-          readonly
-          tabindex="0"
-          placeholder="Press to record..."
-          @keydown="handleKeydown($event, 'de')"
-        />
-        <button class="btn" @click="startRecordingHotkey('de')">
-          {{ isRecordingHotkeyDe ? "Cancel" : "Record" }}
-        </button>
+      <div class="field">
+        <label class="field-label">German <span class="optional">(optional)</span></label>
+        <div class="field-row">
+          <input
+            ref="hotkeyInputDe"
+            type="text"
+            class="input hotkey-input"
+            :class="{ recording: isRecordingHotkeyDe }"
+            :value="isRecordingHotkeyDe ? 'Press a key...' : (settings.hotkey_de || '')"
+            readonly
+            placeholder="Not set"
+            @keydown="handleKeydown($event, 'de')"
+          />
+          <button class="btn" @click="startRecordingHotkey('de')">
+            {{ isRecordingHotkeyDe ? "Cancel" : "Set" }}
+          </button>
+        </div>
       </div>
-      <small class="setting-hint">
-        Current: {{ settings.hotkey_de || "Not set" }}
-      </small>
-    </div>
 
-    <!-- Mute Hotkey -->
-    <div class="setting">
-      <label class="setting-label">Mute/Unmute Hotkey:</label>
-      <div class="input-row">
-        <input
-          ref="hotkeyInputMute"
-          type="text"
-          class="input"
-          :value="isRecordingHotkeyMute ? 'Press a key...' : (settings.hotkey_mute || 'F4')"
-          readonly
-          tabindex="0"
-          placeholder="Press to record..."
-          @keydown="handleKeydown($event, 'mute')"
-        />
-        <button class="btn" @click="startRecordingHotkey('mute')">
-          {{ isRecordingHotkeyMute ? "Cancel" : "Record" }}
-        </button>
+      <div class="field">
+        <label class="field-label">Mute/Unmute</label>
+        <div class="field-row">
+          <input
+            ref="hotkeyInputMute"
+            type="text"
+            class="input hotkey-input"
+            :class="{ recording: isRecordingHotkeyMute }"
+            :value="isRecordingHotkeyMute ? 'Press a key...' : (settings.hotkey_mute || 'F4')"
+            readonly
+            @keydown="handleKeydown($event, 'mute')"
+          />
+          <button class="btn" @click="startRecordingHotkey('mute')">
+            {{ isRecordingHotkeyMute ? "Cancel" : "Set" }}
+          </button>
+        </div>
       </div>
-      <small class="setting-hint">
-        Current: {{ settings.hotkey_mute || "F4" }}
-      </small>
-    </div>
+    </section>
 
-    <!-- Buttons -->
-    <div class="buttons">
+    <!-- Actions -->
+    <div class="actions">
       <button class="btn" @click="cancel">Cancel</button>
       <button class="btn btn-primary" @click="saveSettings">Save</button>
     </div>
@@ -345,45 +330,98 @@ function cancel() {
 </template>
 
 <style scoped>
-.settings-view {
+.settings {
   max-width: 400px;
   margin: 0 auto;
-  animation: fadeIn var(--transition-normal);
 }
 
-.setting {
-  margin-bottom: 20px;
+.section {
+  margin-bottom: 24px;
 }
 
-.setting-label {
-  display: block;
-  font-weight: 500;
-  margin-bottom: 6px;
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text-primary);
+  margin: 0 0 4px 0;
 }
 
-.setting-hint {
-  display: block;
+.section-desc {
+  font-size: 13px;
   color: var(--text-secondary);
-  margin-top: 4px;
-  font-size: 12px;
+  margin: 0 0 12px 0;
 }
 
-.input-row {
+.field {
+  margin-bottom: 12px;
+}
+
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.field-row {
   display: flex;
   gap: 8px;
 }
 
-.input-row .input {
+.field-row .input {
   flex: 1;
 }
 
-.buttons {
+.model-box {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.model-box.empty {
+  border-style: dashed;
+}
+
+.model-name {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.model-box.empty .model-name {
+  color: var(--text-muted);
+}
+
+.hotkey-input {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.hotkey-input.recording {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.spinning {
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border-light);
 }
 </style>

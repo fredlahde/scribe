@@ -16,12 +16,12 @@ import AppHeader from "./components/AppHeader.vue";
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--bg-primary);
+  background: var(--bg-base);
 }
 
 .main-content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 20px;
 }
 </style>

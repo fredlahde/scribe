@@ -18,51 +18,31 @@ function goBack() {
 
 <template>
   <header class="header">
-    <div class="header-left">
+    <div class="header-side">
       <button
         v-if="isSettingsPage"
-        class="back-button"
+        class="icon-btn"
         @click="goBack"
         aria-label="Go back"
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <polyline points="15 18 9 12 15 6"></polyline>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"/>
         </svg>
       </button>
     </div>
-    <h1 class="title">
-      {{ isSettingsPage ? "Settings" : "Scribe" }}
-    </h1>
-    <div class="header-right">
+    
+    <h1 class="title">{{ isSettingsPage ? "Settings" : "Scribe" }}</h1>
+    
+    <div class="header-side header-side-end">
       <button
         v-if="!isSettingsPage"
-        class="settings-button"
+        class="icon-btn"
         @click="goToSettings"
         aria-label="Settings"
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="12" cy="12" r="3"></circle>
-          <path
-            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-          ></path>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+          <circle cx="12" cy="12" r="3"/>
         </svg>
       </button>
     </div>
@@ -74,76 +54,52 @@ function goBack() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--bg-toolbar);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border-color);
+  padding: 14px 16px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-light);
   -webkit-app-region: drag;
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
-.header-left,
-.header-right {
-  width: 40px;
+.header-side {
+  width: 36px;
   display: flex;
   align-items: center;
 }
 
-.header-right {
+.header-side-end {
   justify-content: flex-end;
 }
 
 .title {
-  font-size: 1rem;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
-  text-align: center;
   letter-spacing: -0.01em;
 }
 
-.settings-button,
-.back-button {
+.icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
   padding: 0;
-  border: none;
   background: transparent;
-  border-radius: var(--radius-controls);
+  border: none;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--duration-fast) var(--ease);
   -webkit-app-region: no-drag;
 }
 
-.settings-button:hover,
-.back-button:hover {
+.icon-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.settings-button:active,
-.back-button:active {
+.icon-btn:active {
   background: var(--bg-active);
-  transform: scale(0.95);
-}
-
-.settings-button svg,
-.back-button svg {
-  transition: transform var(--transition-fast);
-}
-
-.back-button:hover svg {
-  transform: translateX(-2px);
-}
-
-.settings-button:hover svg {
-  transform: rotate(30deg);
 }
 </style>

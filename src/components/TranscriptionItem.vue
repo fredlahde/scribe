@@ -13,7 +13,6 @@ const emit = defineEmits<{
 
 const showCopied = ref(false);
 
-// Format relative time (e.g., "2 min ago")
 const relativeTime = computed(() => {
   const now = new Date();
   const created = new Date(props.transcription.created_at);
@@ -24,34 +23,26 @@ const relativeTime = computed(() => {
   const diffDay = Math.floor(diffHour / 24);
 
   if (diffSec < 60) return "Just now";
-  if (diffMin < 60) return `${diffMin} min ago`;
-  if (diffHour < 24) return `${diffHour} hour${diffHour > 1 ? "s" : ""} ago`;
-  if (diffDay < 7) return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffDay < 7) return `${diffDay}d ago`;
 
   return created.toLocaleDateString();
 });
 
-// Format language display with fallback for unknown codes
-const languageDisplay = computed(() => {
-  const langMap: Record<string, string> = {
-    en: "English",
-    de: "German",
-  };
-  return langMap[props.transcription.language] ?? props.transcription.language;
+const languageLabel = computed(() => {
+  const map: Record<string, string> = { en: "EN", de: "DE" };
+  return map[props.transcription.language] ?? props.transcription.language.toUpperCase();
 });
 
-// Format duration (e.g., "5.2s")
-const durationDisplay = computed(() => {
-  const seconds = props.transcription.duration_ms / 1000;
-  return `${seconds.toFixed(1)}s`;
+const duration = computed(() => {
+  return `${(props.transcription.duration_ms / 1000).toFixed(1)}s`;
 });
 
 async function handleCopy() {
   emit("copy", props.transcription.text);
   showCopied.value = true;
-  setTimeout(() => {
-    showCopied.value = false;
-  }, 2000);
+  setTimeout(() => { showCopied.value = false; }, 1500);
 }
 
 function handleDelete() {
@@ -60,145 +51,139 @@ function handleDelete() {
 </script>
 
 <template>
-  <div class="transcription-item card">
-    <div class="item-content">
-      <p class="item-text">{{ transcription.text }}</p>
-      <div class="item-meta">
+  <article class="item card">
+    <div class="content">
+      <p class="text">{{ transcription.text }}</p>
+      <div class="meta">
+        <span class="tag" :class="'tag-' + transcription.language">{{ languageLabel }}</span>
+        <span class="dot"></span>
         <span>{{ relativeTime }}</span>
-        <span class="meta-separator">-</span>
-        <span>{{ languageDisplay }}</span>
-        <span class="meta-separator">-</span>
-        <span>{{ durationDisplay }}</span>
-        <span class="meta-separator">-</span>
+        <span class="dot"></span>
+        <span>{{ duration }}</span>
+        <span class="dot"></span>
         <span>{{ transcription.word_count }} words</span>
       </div>
     </div>
-    <div class="item-actions">
+    <div class="actions">
       <button
-        class="btn btn-icon"
-        :class="{ 'btn-success': showCopied }"
+        class="action-btn"
+        :class="{ copied: showCopied }"
         @click="handleCopy"
-        :aria-label="showCopied ? 'Copied!' : 'Copy to clipboard'"
         :title="showCopied ? 'Copied!' : 'Copy'"
       >
-        <svg
-          v-if="!showCopied"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        <svg v-if="!showCopied" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
         </svg>
-        <svg
-          v-else
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <polyline points="20 6 9 17 4 12"></polyline>
+        <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
         </svg>
       </button>
-      <button
-        class="btn btn-icon btn-danger"
-        @click="handleDelete"
-        aria-label="Delete"
-        title="Delete"
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path
-            d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-          ></path>
+      <button class="action-btn action-btn-danger" @click="handleDelete" title="Delete">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h18"/>
+          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
         </svg>
       </button>
     </div>
-  </div>
+  </article>
 </template>
 
 <style scoped>
-.transcription-item {
+.item {
   display: flex;
   gap: 12px;
-  margin-bottom: 8px;
-  transition: box-shadow var(--transition-normal), transform var(--transition-fast);
-  animation: scaleIn var(--transition-normal);
 }
 
-.transcription-item:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-
-.item-content {
+.content {
   flex: 1;
   min-width: 0;
 }
 
-.item-text {
+.text {
+  font-size: 14px;
+  line-height: 1.6;
   color: var(--text-primary);
-  line-height: 1.5;
-  margin-bottom: 6px;
+  margin: 0 0 8px 0;
   word-wrap: break-word;
-  overflow-wrap: break-word;
 }
 
-.item-meta {
+.meta {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 8px;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-secondary);
 }
 
-.meta-separator {
-  color: var(--text-tertiary);
+.tag {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
 }
 
-.item-actions {
+.tag-en {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.tag-de {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+.dot {
+  width: 3px;
+  height: 3px;
+  background: var(--text-muted);
+  border-radius: 50%;
+}
+
+.actions {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex-shrink: 0;
-  opacity: 0.6;
-  transition: opacity var(--transition-fast);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
 }
 
-.transcription-item:hover .item-actions {
+.item:hover .actions {
   opacity: 1;
 }
 
-.btn-success {
-  color: var(--accent-success) !important;
-  border-color: var(--accent-success) !important;
-  animation: pulse 0.3s ease;
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease);
 }
 
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
+.action-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.action-btn.copied {
+  background: var(--success-muted);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.action-btn-danger:hover {
+  background: var(--danger-muted);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 </style>
