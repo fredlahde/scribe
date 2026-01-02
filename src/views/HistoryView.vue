@@ -8,10 +8,12 @@ import {
   usePendingDelete,
   type Transcription,
 } from "../stores/pendingDelete";
+import { CALLBACK_KEYS } from "../constants";
 
 const transcriptions = ref<Transcription[]>([]);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
+const copyError = ref<string | null>(null);
 
 const {
   pendingDelete,
@@ -42,8 +44,13 @@ async function fetchHistory() {
 async function handleCopy(text: string) {
   try {
     await writeText(text);
+    copyError.value = null;
   } catch (e) {
     console.error("Failed to copy to clipboard:", e);
+    copyError.value = "Failed to copy to clipboard";
+    setTimeout(() => {
+      copyError.value = null;
+    }, 3000);
   }
 }
 
@@ -60,6 +67,10 @@ function handleUndo() {
   undoDelete();
 }
 
+/**
+ * Restores a transcription to its correct position in the list.
+ * List is sorted by created_at descending (newest first), with id as tiebreaker.
+ */
 function restoreTranscription(transcription: Transcription) {
   const insertIndex = transcriptions.value.findIndex((t) => {
     const tCreated = new Date(t.created_at).getTime();
@@ -77,11 +88,9 @@ function restoreTranscription(transcription: Transcription) {
   }
 }
 
-const CALLBACK_KEY = "history-view";
-
 onMounted(async () => {
   await fetchHistory();
-  registerCallbacks(CALLBACK_KEY, restoreTranscription);
+  registerCallbacks(CALLBACK_KEYS.HISTORY_VIEW, restoreTranscription);
 
   unlistenTranscriptionAdded = await listen<Transcription>(
     "transcription-added",
@@ -95,7 +104,7 @@ onUnmounted(() => {
   if (unlistenTranscriptionAdded) {
     unlistenTranscriptionAdded();
   }
-  unregisterCallbacks(CALLBACK_KEY);
+  unregisterCallbacks(CALLBACK_KEYS.HISTORY_VIEW);
 });
 </script>
 
@@ -149,6 +158,13 @@ onUnmounted(() => {
       <div v-if="pendingDelete" class="toast">
         <span>Deleted</span>
         <button class="toast-btn" @click="handleUndo">Undo</button>
+      </div>
+    </Transition>
+
+    <!-- Copy error toast -->
+    <Transition name="toast">
+      <div v-if="copyError" class="toast toast-error">
+        <span>{{ copyError }}</span>
       </div>
     </Transition>
   </div>
@@ -232,6 +248,11 @@ onUnmounted(() => {
   box-shadow: var(--shadow-lg);
   font-size: 13px;
   z-index: 100;
+}
+
+.toast-error {
+  background: var(--danger);
+  bottom: 70px;
 }
 
 .toast-btn {
