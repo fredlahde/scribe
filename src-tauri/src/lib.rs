@@ -42,6 +42,63 @@ fn validate_audio_device(device_name: Option<String>) -> bool {
 }
 
 #[tauri::command]
+async fn disable_shortcuts(app: tauri::AppHandle) -> Result<(), String> {
+    let shortcut_manager = app.global_shortcut();
+    shortcut_manager
+        .unregister_all()
+        .map_err(|e| format!("Failed to unregister shortcuts: {}", e))?;
+    eprintln!("[Shortcuts disabled for hotkey configuration]");
+    Ok(())
+}
+
+#[tauri::command]
+async fn enable_shortcuts(app: tauri::AppHandle) -> Result<(), String> {
+    // Re-register all shortcuts from current settings
+    let store = app
+        .store("settings.json")
+        .map_err(|e| format!("Failed to open store: {}", e))?;
+
+    let hotkey_en = store
+        .get("hotkey")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(|| "F2".to_string());
+
+    let hotkey_de = store
+        .get("hotkey_de")
+        .and_then(|v| v.as_str().map(String::from));
+
+    let hotkey_mute = store
+        .get("hotkey_mute")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(|| "F4".to_string());
+
+    // Re-register English shortcut
+    if let Err(e) = setup_shortcut(&app, &hotkey_en, Language::English) {
+        eprintln!("Failed to setup English shortcut: {}", e);
+        return Err(format!("Failed to setup shortcut: {}", e));
+    }
+
+    // Re-register German shortcut if configured
+    if let Some(ref hotkey) = hotkey_de {
+        if !hotkey.is_empty() {
+            if let Err(e) = setup_shortcut(&app, hotkey, Language::German) {
+                eprintln!("Failed to setup German shortcut: {}", e);
+                return Err(format!("Failed to setup German shortcut: {}", e));
+            }
+        }
+    }
+
+    // Re-register mute shortcut
+    if let Err(e) = setup_mute_shortcut(&app, &hotkey_mute) {
+        eprintln!("Failed to setup mute shortcut: {}", e);
+        return Err(format!("Failed to setup mute shortcut: {}", e));
+    }
+
+    eprintln!("[Shortcuts re-enabled]");
+    Ok(())
+}
+
+#[tauri::command]
 async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
     // Load new settings from store
     let store = app
@@ -417,7 +474,9 @@ pub fn run() {
             get_history,
             delete_transcription,
             list_audio_devices,
-            validate_audio_device
+            validate_audio_device,
+            disable_shortcuts,
+            enable_shortcuts
         ])
         .setup(|app| {
             // Load settings from store

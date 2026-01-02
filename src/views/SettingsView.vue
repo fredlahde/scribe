@@ -114,6 +114,8 @@ async function browseModel() {
 }
 
 function startRecordingHotkey(type: "en" | "de" | "mute") {
+  const wasRecording = isRecordingHotkey.value || isRecordingHotkeyDe.value || isRecordingHotkeyMute.value;
+  
   if (type === "en") {
     isRecordingHotkey.value = !isRecordingHotkey.value;
     isRecordingHotkeyDe.value = false;
@@ -126,6 +128,17 @@ function startRecordingHotkey(type: "en" | "de" | "mute") {
     isRecordingHotkeyMute.value = !isRecordingHotkeyMute.value;
     isRecordingHotkey.value = false;
     isRecordingHotkeyDe.value = false;
+  }
+
+  const isNowRecording = isRecordingHotkey.value || isRecordingHotkeyDe.value || isRecordingHotkeyMute.value;
+  
+  // Disable shortcuts when starting to record a hotkey
+  if (!wasRecording && isNowRecording) {
+    invoke("disable_shortcuts").catch((e) => console.error("Failed to disable shortcuts:", e));
+  }
+  // Re-enable shortcuts when cancelling (not when a key is captured - that's handled in handleKeydown)
+  else if (wasRecording && !isNowRecording) {
+    invoke("enable_shortcuts").catch((e) => console.error("Failed to enable shortcuts:", e));
   }
 }
 
@@ -163,6 +176,9 @@ function handleKeydown(e: KeyboardEvent, type: "en" | "de" | "mute") {
     settings.value.hotkey_mute = hotkeyStr;
     isRecordingHotkeyMute.value = false;
   }
+
+  // Re-enable shortcuts after capturing a key
+  invoke("enable_shortcuts").catch((e) => console.error("Failed to enable shortcuts:", e));
 }
 
 async function saveSettings() {
