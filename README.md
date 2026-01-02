@@ -194,4 +194,4 @@ Verify the model file path is correct and the file is not corrupted. Try re-down
 
 ## License
 
-MIT
+MIT or Apache-2.0, at your option.
