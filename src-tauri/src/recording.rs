@@ -14,9 +14,14 @@ use crate::tray::{show_main_window, update_tray_state, TRAY_ID};
 use crate::AppResources;
 
 /// Update tray icon to reflect the given state.
-fn set_tray_state(app: &tauri::AppHandle, state: RecordingState) {
+fn set_tray_state(
+    app: &tauri::AppHandle,
+    state: RecordingState,
+    hotkey_en: &str,
+    hotkey_mute: &str,
+) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        let _ = update_tray_state(&tray, state, app);
+        let _ = update_tray_state(&tray, state, hotkey_en, hotkey_mute);
     }
 }
 
@@ -25,6 +30,10 @@ pub fn handle_mute_toggle(app: &tauri::AppHandle) {
     let resources = app.state::<Arc<Mutex<AppResources>>>();
     let mut res = resources.lock().unwrap();
 
+    // Extract hotkeys while we have the lock
+    let hotkey_en = res.hotkey_en.clone();
+    let hotkey_mute = res.hotkey_mute.clone();
+
     if res.recorder.is_muted() {
         // Unmute
         if let Err(e) = res.recorder.unmute() {
@@ -32,10 +41,11 @@ pub fn handle_mute_toggle(app: &tauri::AppHandle) {
             return;
         }
         res.state.set(RecordingState::Idle);
+        drop(res); // Release lock before tray update
 
         // Update tray icon
         if let Some(tray) = app.tray_by_id(TRAY_ID) {
-            let _ = update_tray_state(&tray, RecordingState::Idle, app);
+            let _ = update_tray_state(&tray, RecordingState::Idle, &hotkey_en, &hotkey_mute);
         }
 
         // Show notification
@@ -52,10 +62,11 @@ pub fn handle_mute_toggle(app: &tauri::AppHandle) {
             return;
         }
         res.state.set(RecordingState::Muted);
+        drop(res); // Release lock before tray update
 
         // Update tray icon
         if let Some(tray) = app.tray_by_id(TRAY_ID) {
-            let _ = update_tray_state(&tray, RecordingState::Muted, app);
+            let _ = update_tray_state(&tray, RecordingState::Muted, &hotkey_en, &hotkey_mute);
         }
 
         // Show notification
@@ -107,20 +118,27 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
         return;
     }
 
+    // Extract hotkeys while we have the lock
+    let hotkey_en = res.hotkey_en.clone();
+    let hotkey_mute = res.hotkey_mute.clone();
+
     // Store the language to use for transcription
     res.pending_language = language;
 
     // Update state to Recording
     res.state.set(RecordingState::Recording);
 
-    // Update tray icon
-    if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        let _ = update_tray_state(&tray, RecordingState::Recording, app);
-    }
-
     // Start audio recorder
     if let Err(e) = res.recorder.start() {
         eprintln!("[Recording error: {}]", e);
+    }
+
+    // Release lock before tray/overlay operations
+    drop(res);
+
+    // Update tray icon
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        let _ = update_tray_state(&tray, RecordingState::Recording, &hotkey_en, &hotkey_mute);
     }
 
     // Show overlay window
@@ -205,26 +223,33 @@ fn process_transcription_result(
 fn run_transcription(app: tauri::AppHandle) {
     let resources = app.state::<Arc<Mutex<AppResources>>>();
 
-    // Stop recording and get samples + language
-    let (audio, language) = {
+    // Stop recording and get samples + language + hotkeys
+    let (audio, language, hotkey_en, hotkey_mute) = {
         let res = resources.lock().unwrap();
+
+        // Extract hotkeys while we have the lock
+        let hotkey_en = res.hotkey_en.clone();
+        let hotkey_mute = res.hotkey_mute.clone();
 
         // Update state to Transcribing
         res.state.set(RecordingState::Transcribing);
-        set_tray_state(&app, RecordingState::Transcribing);
 
         let language = res.pending_language;
 
         match res.recorder.stop() {
-            Ok(a) => (a, language),
+            Ok(a) => (a, language, hotkey_en, hotkey_mute),
             Err(e) => {
                 eprintln!("[Stop error: {}]", e);
                 res.state.set(RecordingState::Idle);
-                set_tray_state(&app, RecordingState::Idle);
+                drop(res); // Release lock before tray update
+                set_tray_state(&app, RecordingState::Idle, &hotkey_en, &hotkey_mute);
                 return;
             }
         }
     };
+
+    // Update tray after releasing lock
+    set_tray_state(&app, RecordingState::Transcribing, &hotkey_en, &hotkey_mute);
 
     eprintln!("[Transcribing {} samples ({:?})...]", audio.len(), language);
 
@@ -258,7 +283,7 @@ fn run_transcription(app: tauri::AppHandle) {
         let res = resources.lock().unwrap();
         res.state.set(RecordingState::Idle);
     }
-    set_tray_state(&app, RecordingState::Idle);
+    set_tray_state(&app, RecordingState::Idle, &hotkey_en, &hotkey_mute);
 
     // Hide overlay after transcription completes
     if let Some(overlay) = app.get_webview_window("overlay") {

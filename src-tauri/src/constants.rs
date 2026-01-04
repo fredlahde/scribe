@@ -6,9 +6,6 @@ pub const OVERLAY_HEIGHT_WARMUP: i32 = 70;
 pub const OVERLAY_HEIGHT_RECORDING: i32 = 50;
 pub const OVERLAY_BOTTOM_OFFSET: i32 = 60;
 
-/// Audio processing
-pub const AUDIO_GAIN: f32 = 2.0;
-
 /// Warmup timing
 pub const WARMUP_MIN_DISPLAY_SECS: u64 = 1;
 pub const WARMUP_EMIT_INTERVAL_MS: u64 = 100;
@@ -17,10 +14,7 @@ pub const WARMUP_EMIT_COUNT: u8 = 5;
 use tauri::{PhysicalPosition, Position, WebviewWindow};
 
 /// Position overlay at bottom center of current monitor.
-pub fn position_overlay_bottom_center(
-    overlay: &WebviewWindow,
-    height: i32,
-) -> tauri::Result<()> {
+pub fn position_overlay_bottom_center(overlay: &WebviewWindow, height: i32) -> tauri::Result<()> {
     if let Some(monitor) = overlay.current_monitor()? {
         let size = monitor.size();
         let pos = monitor.position();

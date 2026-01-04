@@ -23,11 +23,10 @@ use crate::commands::{
 };
 use crate::history::HistoryDb;
 use crate::input::TextInput;
-use crate::settings::{AppSettings, AppStateHolder, RecordingState};
+use crate::settings::{AppSettings, AppStateHolder};
 use crate::shortcuts::{setup_mute_shortcut, setup_shortcut};
 use crate::transcribe::{Language, Transcriber};
-use crate::tray::{create_tray, show_main_window, update_tray_state, TRAY_ID};
-use crate::warmup;
+use crate::tray::{create_tray, show_main_window};
 
 /// Shared app resources
 pub struct AppResources {

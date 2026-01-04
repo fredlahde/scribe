@@ -7,10 +7,9 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_plugin_store::StoreExt;
 
 use crate::history::{HistoryDb, Transcription};
-use crate::settings::{AppSettings, RecordingState};
+use crate::settings::AppSettings;
 use crate::shortcuts::register_all_shortcuts;
 use crate::transcribe::Transcriber;
-use crate::tray::{update_tray_state, TRAY_ID};
 use crate::warmup;
 use crate::AppResources;
 

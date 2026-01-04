@@ -62,7 +62,7 @@ pub fn setup_mute_shortcut(app: &tauri::AppHandle, shortcut_str: &str) -> Result
 pub fn register_all_shortcuts(
     app: &tauri::AppHandle,
     settings: &AppSettings,
-) -> Result<(), String> {
+) -> std::result::Result<(), String> {
     // Unregister all shortcuts first
     let shortcut_manager = app.global_shortcut();
     shortcut_manager
