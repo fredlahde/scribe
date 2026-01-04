@@ -223,7 +223,7 @@ onUnmounted(() => {
 /* List transitions */
 .list-enter-active,
 .list-leave-active {
-  transition: all 0.3s var(--ease);
+  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
 }
 
 .list-enter-from {

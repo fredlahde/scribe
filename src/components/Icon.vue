@@ -56,7 +56,7 @@ defineProps<{
   </svg>
 
   <!-- Fallback for unknown icon names -->
-  <svg v-else :width="size || 18" :height="size || 18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <svg v-else :width="size || 18" :height="size || 18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Unknown icon">
     <circle cx="12" cy="12" r="10"/>
     <text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor">?</text>
   </svg>
