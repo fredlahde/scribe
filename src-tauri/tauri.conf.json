@@ -38,6 +38,7 @@
         "skipTaskbar": true,
         "visibleOnAllWorkspaces": true,
         "focusable": false,
+        "backgroundColor": "#00000000",
         "url": "overlay.html"
       }
     ],
