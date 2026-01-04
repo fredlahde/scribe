@@ -126,6 +126,9 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
         let _ = overlay.show();
     }
 
+    // Set overlay to waveform mode
+    let _ = app.emit("overlay-mode", "waveform");
+
     // Spawn thread to emit audio levels
     let app_clone = app.clone();
     thread::spawn(move || {
@@ -256,6 +259,11 @@ fn run_transcription(app: tauri::AppHandle) {
         res.state.set(RecordingState::Idle);
     }
     set_tray_state(&app, RecordingState::Idle);
+    
+    // Hide overlay after transcription completes
+    if let Some(overlay) = app.get_webview_window("overlay") {
+        let _ = overlay.hide();
+    }
 }
 
 /// Stop recording and spawn transcription thread.
@@ -270,10 +278,8 @@ pub fn handle_recording_stop(app: &tauri::AppHandle) {
         }
     }
 
-    // Hide overlay window immediately when hotkey is released
-    if let Some(overlay) = app.get_webview_window("overlay") {
-        let _ = overlay.hide();
-    }
+    // Switch overlay to spinner mode when hotkey is released
+    let _ = app.emit("overlay-mode", "spinner");
 
     // Spawn a thread to handle transcription (it's blocking)
     let app_clone = app.clone();
