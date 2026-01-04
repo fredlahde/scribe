@@ -192,6 +192,16 @@ Ensure the CoreML encoder (`ggml-medium-encoder.mlmodelc`) is in the same direct
 
 Verify the model file path is correct and the file is not corrupted. Try re-downloading the model.
 
+### Text not typing after installing a release build (developers)
+
+When testing production builds (`just build`), you may need to reset accessibility permissions after each rebuild. This happens because macOS ties accessibility permissions to the app's code signature, and ad-hoc signed development builds get a new signature on each build.
+
+```bash
+sudo tccutil reset Accessibility com.scribe.app
+```
+
+After running this command, re-grant accessibility permission when prompted. This is expected behavior for local development builds and does not affect end users installing signed releases.
+
 ## License
 
 MIT or Apache-2.0, at your option.
