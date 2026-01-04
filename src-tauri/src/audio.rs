@@ -11,8 +11,7 @@ use crate::transcribe::WHISPER_SAMPLE_RATE;
 fn get_device_name(device: &Device) -> String {
     device
         .description()
-        .map(|d| d.name().to_string())
-        .unwrap_or_else(|_| "Unknown".to_string())
+        .map_or_else(|_| "Unknown".to_string(), |d| d.name().to_string())
 }
 
 /// Returns a list of available audio input device names.
@@ -21,14 +20,14 @@ pub fn list_input_devices() -> Vec<String> {
     match host.input_devices() {
         Ok(devices) => devices.map(|d| get_device_name(&d)).collect(),
         Err(e) => {
-            eprintln!("[Failed to enumerate input devices: {}]", e);
+            eprintln!("[Failed to enumerate input devices: {e}]");
             Vec::new()
         }
     }
 }
 
 /// Checks if an audio device with the given name exists.
-/// Returns true if device_name is None (system default) or if the device is found.
+/// Returns true if `device_name` is None (system default) or if the device is found.
 pub fn device_exists(device_name: Option<&str>) -> bool {
     let Some(name) = device_name else {
         return true; // None means system default, always valid
@@ -65,12 +64,12 @@ fn find_device_by_name(device_name: Option<&str>) -> Result<Device> {
                 for device in devices {
                     let device_name_str = get_device_name(&device);
                     if device_name_str == name {
-                        eprintln!("[Using audio device: {}]", name);
+                        eprintln!("[Using audio device: {name}]");
                         return Ok(device);
                     }
                 }
             }
-            eprintln!("[Device '{}' not found, falling back to default]", name);
+            eprintln!("[Device '{name}' not found, falling back to default]");
         }
         None => {
             // No specific device requested; fall through to default below.
@@ -104,7 +103,7 @@ impl AudioRecorder {
 
         let config = device
             .default_input_config()
-            .map_err(|e| Error::Audio(format!("failed to get default input config: {}", e)))?;
+            .map_err(|e| Error::Audio(format!("failed to get default input config: {e}")))?;
 
         eprintln!(
             "[Audio config: sample_rate={}, channels={}, format={:?}]",
@@ -133,7 +132,7 @@ impl AudioRecorder {
         // Start the stream immediately and keep it running
         stream
             .play()
-            .map_err(|e| Error::Audio(format!("failed to start stream: {}", e)))?;
+            .map_err(|e| Error::Audio(format!("failed to start stream: {e}")))?;
 
         Ok(Self {
             samples,
@@ -157,31 +156,35 @@ impl AudioRecorder {
         audio_level: Arc<AtomicU32>,
     ) -> Result<Stream> {
         let stream = match sample_format {
-            SampleFormat::F32 => build_input_stream::<f32>(device, config, samples, recording, audio_level),
-            SampleFormat::I16 => build_input_stream::<i16>(device, config, samples, recording, audio_level),
-            SampleFormat::I32 => build_input_stream::<i32>(device, config, samples, recording, audio_level),
+            SampleFormat::F32 => {
+                build_input_stream::<f32>(device, config, samples, recording, audio_level)
+            }
+            SampleFormat::I16 => {
+                build_input_stream::<i16>(device, config, samples, recording, audio_level)
+            }
+            SampleFormat::I32 => {
+                build_input_stream::<i32>(device, config, samples, recording, audio_level)
+            }
             format => Err(Error::Audio(format!(
-                "unsupported sample format: {:?}",
-                format
+                "unsupported sample format: {format:?}"
             ))),
         }?;
 
         Ok(stream)
     }
 
-    pub fn start(&self) -> Result<()> {
+    pub fn start(&self) {
         // Clear any previous samples and start recording
         self.samples.lock().unwrap().clear();
         self.recording.store(true, Ordering::SeqCst);
         eprintln!("[Recording started]");
-        Ok(())
     }
 
     pub fn stop(&self) -> Result<Vec<f32>> {
         // Keep recording flag on for a moment to capture trailing audio
         std::thread::sleep(std::time::Duration::from_millis(150));
         self.recording.store(false, Ordering::SeqCst);
-        
+
         // Reset audio level
         self.audio_level.store(0, Ordering::Relaxed);
 
@@ -201,26 +204,25 @@ impl AudioRecorder {
         };
 
         // Resample to 16kHz if needed
-        if self.sample_rate != WHISPER_SAMPLE_RATE {
-            resample(&mono, self.sample_rate, WHISPER_SAMPLE_RATE)
-        } else {
+        if self.sample_rate == WHISPER_SAMPLE_RATE {
             Ok(mono)
+        } else {
+            resample(&mono, self.sample_rate, WHISPER_SAMPLE_RATE)
         }
     }
 
     /// Mute the microphone by stopping and dropping the audio stream.
     /// This releases the microphone so the system no longer shows it as in use.
-    pub fn mute(&mut self) -> Result<()> {
+    pub fn mute(&mut self) {
         if self.stream.is_none() {
             // Already muted
-            return Ok(());
+            return;
         }
 
         // Drop the stream to release the microphone
         self.stream = None;
         self.recording.store(false, Ordering::SeqCst);
         eprintln!("[Microphone muted]");
-        Ok(())
     }
 
     /// Unmute the microphone by recreating and starting the audio stream.
@@ -241,7 +243,7 @@ impl AudioRecorder {
 
         stream
             .play()
-            .map_err(|e| Error::Audio(format!("failed to start stream: {}", e)))?;
+            .map_err(|e| Error::Audio(format!("failed to start stream: {e}")))?;
 
         self.stream = Some(stream);
         eprintln!("[Microphone unmuted]");
@@ -259,7 +261,7 @@ impl AudioRecorder {
     }
 
     /// Switch to a different audio input device.
-    /// If device_name is None or the device is not found, falls back to the default device.
+    /// If `device_name` is None or the device is not found, falls back to the default device.
     pub fn set_device(&mut self, device_name: Option<&str>) -> Result<()> {
         // Find the new device
         let device = find_device_by_name(device_name)?;
@@ -268,7 +270,7 @@ impl AudioRecorder {
         // Get the new device's config
         let config = device
             .default_input_config()
-            .map_err(|e| Error::Audio(format!("failed to get default input config: {}", e)))?;
+            .map_err(|e| Error::Audio(format!("failed to get default input config: {e}")))?;
 
         eprintln!(
             "[Switching to device: {} (sample_rate={}, channels={}, format={:?})]",
@@ -309,12 +311,12 @@ impl AudioRecorder {
 
             stream
                 .play()
-                .map_err(|e| Error::Audio(format!("failed to start stream: {}", e)))?;
+                .map_err(|e| Error::Audio(format!("failed to start stream: {e}")))?;
 
             self.stream = Some(stream);
         }
 
-        eprintln!("[Audio device switched to: {}]", device_name_str);
+        eprintln!("[Audio device switched to: {device_name_str}]");
         Ok(())
     }
 }
@@ -337,33 +339,36 @@ where
                 if recording.load(Ordering::SeqCst) {
                     let mut buffer = samples.lock().unwrap();
                     let mut sum_squares = 0.0f32;
-                    
+
                     for &sample in data {
                         // Apply gain and clamp to prevent clipping
                         let amplified = (f32::from_sample(sample) * AUDIO_GAIN).clamp(-1.0, 1.0);
                         buffer.push(amplified);
                         sum_squares += amplified * amplified;
                     }
-                    
+
                     // Calculate RMS (root mean square) as audio level
                     if !data.is_empty() {
+                        #[allow(clippy::cast_precision_loss)]
                         let rms = (sum_squares / data.len() as f32).sqrt();
                         audio_level.store(rms.to_bits(), Ordering::Relaxed);
                     }
                 }
             },
-            |err| eprintln!("audio stream error: {}", err),
+            |err| eprintln!("audio stream error: {err}"),
             None,
         )
-        .map_err(|e| Error::Audio(format!("failed to build input stream: {}", e)))?;
+        .map_err(|e| Error::Audio(format!("failed to build input stream: {e}")))?;
 
     Ok(stream)
 }
 
 fn stereo_to_mono(samples: &[f32], channels: usize) -> Vec<f32> {
+    #[allow(clippy::cast_precision_loss)]
+    let channels_f32 = channels as f32;
     samples
         .chunks(channels)
-        .map(|frame| frame.iter().sum::<f32>() / channels as f32)
+        .map(|frame| frame.iter().sum::<f32>() / channels_f32)
         .collect()
 }
 
@@ -378,7 +383,7 @@ fn resample(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Vec<f32>> {
         1, // sub_chunks
         1, // channels (mono)
     )
-    .map_err(|e| Error::Resample(format!("failed to create resampler: {}", e)))?;
+    .map_err(|e| Error::Resample(format!("failed to create resampler: {e}")))?;
 
     let mut output = Vec::new();
 
@@ -396,7 +401,7 @@ fn resample(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Vec<f32>> {
         let waves_in = vec![input_chunk];
         let waves_out = resampler
             .process(&waves_in, None)
-            .map_err(|e| Error::Resample(format!("failed to resample: {}", e)))?;
+            .map_err(|e| Error::Resample(format!("failed to resample: {e}")))?;
 
         if let Some(channel) = waves_out.into_iter().next() {
             output.extend(channel);

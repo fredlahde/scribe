@@ -44,7 +44,7 @@ pub struct AppResources {
 /// Initialize audio recorder with optional device.
 fn init_audio_recorder(settings: &AppSettings) -> Result<AudioRecorder, String> {
     AudioRecorder::new(settings.audio_device.as_deref())
-        .map_err(|e| format!("Failed to init audio: {}", e))
+        .map_err(|e| format!("Failed to init audio: {e}"))
 }
 
 /// Initialize transcriber from model path.
@@ -52,11 +52,11 @@ fn init_transcriber(model_path: Option<&str>) -> Option<Arc<Transcriber>> {
     let path = model_path?;
     match Transcriber::new(path) {
         Ok(t) => {
-            eprintln!("[Model loaded: {}]", path);
+            eprintln!("[Model loaded: {path}]");
             Some(Arc::new(t))
         }
         Err(e) => {
-            eprintln!("[Failed to load model: {}]", e);
+            eprintln!("[Failed to load model: {e}]");
             None
         }
     }
@@ -67,10 +67,10 @@ fn init_history_db(app: &tauri::App) -> Result<Arc<HistoryDb>, String> {
     let app_data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
-    HistoryDb::new(app_data_dir)
+        .map_err(|e| format!("Failed to get app data dir: {e}"))?;
+    HistoryDb::new(&app_data_dir)
         .map(Arc::new)
-        .map_err(|e| format!("Failed to init history database: {}", e))
+        .map_err(|e| format!("Failed to init history database: {e}"))
 }
 
 /// Setup window close handler to hide window instead of quitting.
@@ -82,14 +82,14 @@ fn setup_window_close_handler(window: &tauri::WebviewWindow) {
             match window_clone.is_visible() {
                 Ok(true) => {
                     if let Err(e) = window_clone.hide() {
-                        eprintln!("[Failed to hide window: {}]", e);
+                        eprintln!("[Failed to hide window: {e}]");
                     }
                 }
                 Ok(false) => {
                     // Window already hidden, nothing to do
                 }
                 Err(e) => {
-                    eprintln!("[Failed to check window visibility: {}]", e);
+                    eprintln!("[Failed to check window visibility: {e}]");
                 }
             }
         }
@@ -99,22 +99,23 @@ fn setup_window_close_handler(window: &tauri::WebviewWindow) {
 /// Register all global shortcuts from settings.
 fn register_shortcuts(app: &tauri::AppHandle, settings: &AppSettings) {
     if let Err(e) = setup_shortcut(app, &settings.hotkey_en, Language::English) {
-        eprintln!("[Failed to setup English shortcut: {}]", e);
+        eprintln!("[Failed to setup English shortcut: {e}]");
     }
 
     if let Some(ref hotkey) = settings.hotkey_de {
         if !hotkey.is_empty() {
             if let Err(e) = setup_shortcut(app, hotkey, Language::German) {
-                eprintln!("[Failed to setup German shortcut: {}]", e);
+                eprintln!("[Failed to setup German shortcut: {e}]");
             }
         }
     }
 
     if let Err(e) = setup_mute_shortcut(app, &settings.hotkey_mute) {
-        eprintln!("[Failed to setup mute shortcut: {}]", e);
+        eprintln!("[Failed to setup mute shortcut: {e}]");
     }
 }
 
+#[allow(clippy::missing_panics_doc)]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()

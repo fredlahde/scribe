@@ -49,7 +49,7 @@ pub fn spawn_warmup(app: &tauri::AppHandle, transcriber: Arc<Transcriber>) {
         eprintln!("[Warming up model...]");
         match transcriber.warmup() {
             Ok(()) => eprintln!("[Model warmup complete]"),
-            Err(e) => eprintln!("[Warmup failed: {}]", e),
+            Err(e) => eprintln!("[Warmup failed: {e}]"),
         }
 
         // Ensure minimum display time

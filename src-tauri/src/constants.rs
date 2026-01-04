@@ -18,7 +18,9 @@ pub fn position_overlay_bottom_center(overlay: &WebviewWindow, height: i32) -> t
     if let Some(monitor) = overlay.current_monitor()? {
         let size = monitor.size();
         let pos = monitor.position();
+        #[allow(clippy::cast_possible_wrap)]
         let x = pos.x + (size.width as i32 - OVERLAY_WIDTH) / 2;
+        #[allow(clippy::cast_possible_wrap)]
         let y = pos.y + size.height as i32 - height - OVERLAY_BOTTOM_OFFSET;
         overlay.set_position(Position::Physical(PhysicalPosition { x, y }))?;
     }

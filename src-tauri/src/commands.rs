@@ -19,6 +19,7 @@ pub fn list_audio_devices() -> Vec<String> {
 }
 
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)] // Tauri commands require owned parameters
 pub fn validate_audio_device(device_name: Option<String>) -> bool {
     crate::audio::device_exists(device_name.as_deref())
 }
@@ -28,7 +29,7 @@ pub async fn disable_shortcuts(app: tauri::AppHandle) -> Result<(), String> {
     let shortcut_manager = app.global_shortcut();
     shortcut_manager
         .unregister_all()
-        .map_err(|e| format!("Failed to unregister shortcuts: {}", e))?;
+        .map_err(|e| format!("Failed to unregister shortcuts: {e}"))?;
     eprintln!("[Shortcuts disabled for hotkey configuration]");
     Ok(())
 }
@@ -37,7 +38,7 @@ pub async fn disable_shortcuts(app: tauri::AppHandle) -> Result<(), String> {
 pub async fn enable_shortcuts(app: tauri::AppHandle) -> Result<(), String> {
     let store = app
         .store("settings.json")
-        .map_err(|e| format!("Failed to open store: {}", e))?;
+        .map_err(|e| format!("Failed to open store: {e}"))?;
 
     let settings = AppSettings::load(&store);
     register_all_shortcuts(&app, &settings)?;
@@ -50,7 +51,7 @@ pub async fn enable_shortcuts(app: tauri::AppHandle) -> Result<(), String> {
 pub async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
     let store = app
         .store("settings.json")
-        .map_err(|e| format!("Failed to open store: {}", e))?;
+        .map_err(|e| format!("Failed to open store: {e}"))?;
 
     let settings = AppSettings::load(&store);
 
@@ -59,12 +60,12 @@ pub async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
         let resources = app.state::<Arc<Mutex<AppResources>>>();
         let mut res = resources.lock().unwrap();
         if let Err(e) = res.recorder.set_device(settings.audio_device.as_deref()) {
-            eprintln!("[Failed to switch audio device: {}]", e);
-            return Err(format!("Failed to switch audio device: {}", e));
+            eprintln!("[Failed to switch audio device: {e}]");
+            return Err(format!("Failed to switch audio device: {e}"));
         }
         // Update hotkey settings for tray tooltips
-        res.hotkey_en = settings.hotkey_en.clone();
-        res.hotkey_mute = settings.hotkey_mute.clone();
+        res.hotkey_en.clone_from(&settings.hotkey_en);
+        res.hotkey_mute.clone_from(&settings.hotkey_mute);
     }
 
     // Re-register all shortcuts with new hotkeys
@@ -79,12 +80,12 @@ pub async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
                 Ok(t) => {
                     let transcriber = Arc::new(t);
                     res.transcriber = Some(transcriber.clone());
-                    eprintln!("[Model loaded: {}]", path);
+                    eprintln!("[Model loaded: {path}]");
                     Some(transcriber)
                 }
                 Err(e) => {
-                    eprintln!("[Failed to load model: {}]", e);
-                    return Err(format!("Failed to load model: {}", e));
+                    eprintln!("[Failed to load model: {e}]");
+                    return Err(format!("Failed to load model: {e}"));
                 }
             }
         };
@@ -103,7 +104,7 @@ pub async fn get_history(app: tauri::AppHandle) -> Result<Vec<Transcription>, St
     let history_db = app.state::<Arc<HistoryDb>>();
     history_db
         .get_history(50)
-        .map_err(|e| format!("Failed to get history: {}", e))
+        .map_err(|e| format!("Failed to get history: {e}"))
 }
 
 #[tauri::command]
@@ -111,5 +112,5 @@ pub async fn delete_transcription(app: tauri::AppHandle, id: i64) -> Result<bool
     let history_db = app.state::<Arc<HistoryDb>>();
     history_db
         .delete_transcription(id)
-        .map_err(|e| format!("Failed to delete transcription: {}", e))
+        .map_err(|e| format!("Failed to delete transcription: {e}"))
 }

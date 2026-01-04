@@ -37,7 +37,7 @@ pub fn handle_mute_toggle(app: &tauri::AppHandle) {
     if res.recorder.is_muted() {
         // Unmute
         if let Err(e) = res.recorder.unmute() {
-            eprintln!("[Unmute error: {}]", e);
+            eprintln!("[Unmute error: {e}]");
             return;
         }
         res.state.set(RecordingState::Idle);
@@ -57,10 +57,7 @@ pub fn handle_mute_toggle(app: &tauri::AppHandle) {
             .show();
     } else {
         // Mute
-        if let Err(e) = res.recorder.mute() {
-            eprintln!("[Mute error: {}]", e);
-            return;
-        }
+        res.recorder.mute();
         res.state.set(RecordingState::Muted);
         drop(res); // Release lock before tray update
 
@@ -110,8 +107,7 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
             .builder()
             .title("Scribe")
             .body(format!(
-                "Microphone is muted. Press {} to unmute.",
-                hotkey_mute
+                "Microphone is muted. Press {hotkey_mute} to unmute."
             ))
             .show();
         return;
@@ -132,9 +128,7 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
     res.state.set(RecordingState::Recording);
 
     // Start audio recorder
-    if let Err(e) = res.recorder.start() {
-        eprintln!("[Recording error: {}]", e);
-    }
+    res.recorder.start();
 
     // Release lock before tray/overlay operations
     drop(res);
@@ -176,7 +170,7 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
 fn process_transcription_result(
     app: &tauri::AppHandle,
     resources: &Arc<Mutex<AppResources>>,
-    text: String,
+    text: &str,
     language: Language,
     sample_count: usize,
 ) {
@@ -193,22 +187,22 @@ fn process_transcription_result(
         Language::German => "de",
     };
     let history_db = app.state::<Arc<HistoryDb>>();
-    match history_db.save_transcription(&text, lang_str, sample_count) {
+    match history_db.save_transcription(text, lang_str, sample_count) {
         Ok(record) => {
             eprintln!("[Saved to history: id={}]", record.id);
             // Emit event for frontend to update
             let _ = app.emit("transcription-added", &record);
         }
         Err(e) => {
-            eprintln!("[Failed to save to history: {}]", e);
+            eprintln!("[Failed to save to history: {e}]");
         }
     }
 
     // Type the text
     {
         let mut res = resources.lock().unwrap();
-        if let Err(e) = res.text_input.type_text(&text) {
-            eprintln!("[Type error: {}]", e);
+        if let Err(e) = res.text_input.type_text(text) {
+            eprintln!("[Type error: {e}]");
         }
     }
 
@@ -223,7 +217,7 @@ fn process_transcription_result(
 
 /// Stop recording, run transcription, and handle the result.
 /// This runs in a background thread.
-fn run_transcription(app: tauri::AppHandle) {
+fn run_transcription(app: &tauri::AppHandle) {
     let resources = app.state::<Arc<Mutex<AppResources>>>();
 
     // Stop recording and get samples + language + hotkeys
@@ -242,19 +236,19 @@ fn run_transcription(app: tauri::AppHandle) {
         match res.recorder.stop() {
             Ok(a) => (a, language, hotkey_en, hotkey_mute),
             Err(e) => {
-                eprintln!("[Stop error: {}]", e);
+                eprintln!("[Stop error: {e}]");
                 res.state.set(RecordingState::Idle);
                 drop(res); // Release lock before tray update
-                set_tray_state(&app, RecordingState::Idle, &hotkey_en, &hotkey_mute);
+                set_tray_state(app, RecordingState::Idle, &hotkey_en, &hotkey_mute);
                 return;
             }
         }
     };
 
     // Update tray after releasing lock
-    set_tray_state(&app, RecordingState::Transcribing, &hotkey_en, &hotkey_mute);
+    set_tray_state(app, RecordingState::Transcribing, &hotkey_en, &hotkey_mute);
 
-    eprintln!("[Transcribing {} samples ({:?})...]", audio.len(), language);
+    eprintln!("[Transcribing {} samples ({language:?})...]", audio.len());
 
     if audio.is_empty() {
         eprintln!("[No audio captured]");
@@ -273,10 +267,10 @@ fn run_transcription(app: tauri::AppHandle) {
 
         match transcription {
             Ok(text) => {
-                process_transcription_result(&app, &resources, text, language, sample_count);
+                process_transcription_result(app, &resources, &text, language, sample_count);
             }
             Err(e) => {
-                eprintln!("[Transcription error: {}]", e);
+                eprintln!("[Transcription error: {e}]");
             }
         }
     }
@@ -286,7 +280,7 @@ fn run_transcription(app: tauri::AppHandle) {
         let res = resources.lock().unwrap();
         res.state.set(RecordingState::Idle);
     }
-    set_tray_state(&app, RecordingState::Idle, &hotkey_en, &hotkey_mute);
+    set_tray_state(app, RecordingState::Idle, &hotkey_en, &hotkey_mute);
 
     // Hide overlay after transcription completes
     if let Some(overlay) = app.get_webview_window("overlay") {
@@ -312,6 +306,6 @@ pub fn handle_recording_stop(app: &tauri::AppHandle) {
     // Spawn a thread to handle transcription (it's blocking)
     let app_clone = app.clone();
     thread::spawn(move || {
-        run_transcription(app_clone);
+        run_transcription(&app_clone);
     });
 }
