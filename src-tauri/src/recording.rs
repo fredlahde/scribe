@@ -72,6 +72,19 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
     let resources = app.state::<Arc<Mutex<AppResources>>>();
     let mut res = resources.lock().unwrap();
 
+    // Check if warming up
+    if res.state.get() == RecordingState::WarmingUp {
+        eprintln!("[Cannot record - model is still warming up]");
+        drop(res);
+        let _ = app
+            .notification()
+            .builder()
+            .title("Scribe")
+            .body("Model is starting up, please wait...")
+            .show();
+        return;
+    }
+
     // Check if muted
     if res.recorder.is_muted() {
         eprintln!("[Cannot record - microphone is muted]");

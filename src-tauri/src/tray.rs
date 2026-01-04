@@ -39,6 +39,7 @@ pub fn load_tray_icon(state: RecordingState) -> tauri::Result<Image<'static>> {
         RecordingState::Recording => include_bytes!("../icons/tray-recording.png"),
         RecordingState::Transcribing => include_bytes!("../icons/tray-transcribing.png"),
         RecordingState::Muted => include_bytes!("../icons/tray-muted.png"),
+        RecordingState::WarmingUp => include_bytes!("../icons/tray-warmup.png"),
     };
 
     // Decode PNG to RGBA
@@ -67,6 +68,7 @@ pub fn update_tray_state<R: Runtime>(
         RecordingState::Recording => "Scribe - Recording...",
         RecordingState::Transcribing => "Scribe - Transcribing...",
         RecordingState::Muted => "Scribe - Muted (Press F4 to unmute)",
+        RecordingState::WarmingUp => "Scribe - Starting up...",
     };
 
     tray.set_tooltip(Some(tooltip))?;

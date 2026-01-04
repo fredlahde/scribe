@@ -91,10 +91,38 @@
       .visible {
         display: flex !important;
       }
+
+      /* Warmup mode styles */
+      .overlay-container.with-text {
+        height: 56px;
+        flex-direction: column;
+        padding: 8px 14px 6px;
+        gap: 4px;
+      }
+
+      .waveform.warmup .waveform-bar {
+        background: linear-gradient(180deg, #ffcc00 0%, #ff9500 100%);
+        border-radius: 2px;
+        transition: none;
+      }
+
+      .warmup-text {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        color: rgba(255, 255, 255, 0.6);
+        white-space: nowrap;
+        display: none;
+      }
+
+      .warmup-text.visible {
+        display: block;
+      }
     </style>
   </head>
   <body>
-    <div class="overlay-container">
+    <div class="overlay-container" id="overlay-container">
       <div class="waveform" id="waveform"></div>
       <div class="spinner" id="spinner">
         <div class="spinner-blade"></div>
@@ -106,18 +134,24 @@
         <div class="spinner-blade"></div>
         <div class="spinner-blade"></div>
       </div>
+      <span class="warmup-text" id="warmup-text">Starting up</span>
     </div>
     <script type="module">
       import { listen } from '@tauri-apps/api/event';
 
       const waveform = document.getElementById('waveform');
       const spinner = document.getElementById('spinner');
+      const warmupText = document.getElementById('warmup-text');
+      const overlayContainer = document.getElementById('overlay-container');
       const barCount = 16;
       const bars = [];
 
       // Track unlisten functions for cleanup
       let unlistenMode = null;
       let unlistenLevel = null;
+
+      // Current mode tracking
+      let currentMode = 'waveform';
 
       // Create waveform bars
       for (let i = 0; i < barCount; i++) {
@@ -138,20 +172,36 @@
         blade.style.animationDelay = `${-delay}s`;
       });
 
-      // Listen for mode changes
-      listen('overlay-mode', (event) => {
-        const mode = event.payload;
-        if (mode === 'waveform') {
+      // Apply mode to UI
+      function applyMode(mode) {
+        currentMode = mode;
+        if (mode === 'warmup') {
           waveform.classList.remove('hidden');
+          waveform.classList.add('visible', 'warmup');
+          spinner.classList.remove('visible');
+          spinner.classList.add('hidden');
+          warmupText.classList.add('visible');
+          overlayContainer.classList.add('with-text');
+        } else if (mode === 'waveform') {
+          waveform.classList.remove('hidden', 'warmup');
           waveform.classList.add('visible');
           spinner.classList.remove('visible');
           spinner.classList.add('hidden');
+          warmupText.classList.remove('visible');
+          overlayContainer.classList.remove('with-text');
         } else if (mode === 'spinner') {
-          waveform.classList.remove('visible');
+          waveform.classList.remove('visible', 'warmup');
           waveform.classList.add('hidden');
           spinner.classList.remove('hidden');
           spinner.classList.add('visible');
+          warmupText.classList.remove('visible');
+          overlayContainer.classList.remove('with-text');
         }
+      }
+
+      // Listen for mode changes
+      listen('overlay-mode', (event) => {
+        applyMode(event.payload);
       }).then(fn => { unlistenMode = fn; });
 
       // Animation constants
@@ -171,6 +221,31 @@
 
       // Animate bars
       function animate() {
+        // Warmup mode - gentle pulsing wave animation
+        if (currentMode === 'warmup') {
+          const time = Date.now();
+          bars.forEach((bar, index) => {
+            // Create a wave that sweeps across the bars
+            const waveSpeed = 1000; // ms for full cycle (slower)
+            const phase = ((time / waveSpeed) + (index * 0.12)) * Math.PI * 2;
+            const wave = (Math.sin(phase) + 1) / 2; // 0 to 1
+            
+            // Height ranges from 8px to 18px (less dramatic)
+            const height = 8 + wave * 10;
+            // Opacity ranges from 0.6 to 1.0 (more subtle)
+            const opacity = 0.6 + wave * 0.4;
+            
+            bar.style.height = height + 'px';
+            bar.style.opacity = opacity;
+          });
+          
+          animationFrame = requestAnimationFrame(animate);
+          return;
+        }
+
+        // Reset opacity for normal mode
+        bars.forEach(bar => bar.style.opacity = '');
+
         // Smooth interpolation
         currentLevel += (targetLevel - currentLevel) * INTERPOLATION_FACTOR;
 
