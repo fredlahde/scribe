@@ -115,12 +115,13 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
         if let Ok(monitor) = overlay.current_monitor() {
             if let Some(monitor) = monitor {
                 let size = monitor.size();
-                let overlay_width = 300;
-                let overlay_height = 80;
+                let overlay_width = 200;
+                let overlay_height = 50;
                 let x = (size.width as i32 - overlay_width) / 2;
-                let y = size.height as i32 - overlay_height - 100; // 100px from bottom
-                
-                let _ = overlay.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+                let y = size.height as i32 - overlay_height - 60; // 60px from bottom
+
+                let _ = overlay
+                    .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
             }
         }
         let _ = overlay.show();
@@ -138,7 +139,7 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
             let is_recording = res.state.get() == RecordingState::Recording;
             let level = res.recorder.get_audio_level();
             drop(res);
-            
+
             if is_recording {
                 let _ = app_clone.emit("audio-level", level);
                 true
@@ -259,7 +260,7 @@ fn run_transcription(app: tauri::AppHandle) {
         res.state.set(RecordingState::Idle);
     }
     set_tray_state(&app, RecordingState::Idle);
-    
+
     // Hide overlay after transcription completes
     if let Some(overlay) = app.get_webview_window("overlay") {
         let _ = overlay.hide();

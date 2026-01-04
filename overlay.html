@@ -26,20 +26,25 @@
       }
 
       .overlay-container {
-        width: 280px;
-        height: 60px;
-        background: rgba(0, 0, 0, 0.9);
-        border-radius: 30px;
+        width: 180px;
+        height: 40px;
+        background: rgba(40, 40, 40, 0.75);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 0 20px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        padding: 0 14px;
+        box-shadow: 
+          0 2px 8px rgba(0, 0, 0, 0.12),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
       }
 
       .waveform {
         width: 100%;
-        height: 40px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -48,25 +53,35 @@
 
       .waveform-bar {
         width: 3px;
-        background: white;
-        border-radius: 2px;
-        transition: height 0.1s ease-out;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 1.5px;
+        transition: height 0.08s ease-out;
       }
 
       .spinner {
-        width: 32px;
-        height: 32px;
-        border: 3px solid rgba(255, 255, 255, 0.3);
-        border-top-color: white;
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
+        position: relative;
+        width: 20px;
+        height: 20px;
         display: none;
       }
 
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
+      .spinner-blade {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 2px;
+        height: 6px;
+        margin-left: -1px;
+        margin-top: -9px;
+        border-radius: 1px;
+        background: rgba(255, 255, 255, 0.25);
+        transform-origin: center 9px;
+        animation: spinner-fade 1s linear infinite;
+      }
+
+      @keyframes spinner-fade {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.25; }
       }
 
       .hidden {
@@ -81,24 +96,43 @@
   <body>
     <div class="overlay-container">
       <div class="waveform" id="waveform"></div>
-      <div class="spinner" id="spinner"></div>
+      <div class="spinner" id="spinner">
+        <div class="spinner-blade"></div>
+        <div class="spinner-blade"></div>
+        <div class="spinner-blade"></div>
+        <div class="spinner-blade"></div>
+        <div class="spinner-blade"></div>
+        <div class="spinner-blade"></div>
+        <div class="spinner-blade"></div>
+        <div class="spinner-blade"></div>
+      </div>
     </div>
     <script type="module">
       import { listen } from '@tauri-apps/api/event';
 
       const waveform = document.getElementById('waveform');
       const spinner = document.getElementById('spinner');
-      const barCount = 20;
+      const barCount = 16;
       const bars = [];
 
       // Create waveform bars
       for (let i = 0; i < barCount; i++) {
         const bar = document.createElement('div');
         bar.className = 'waveform-bar';
-        bar.style.height = '4px';
+        bar.style.height = '3px';
         waveform.appendChild(bar);
         bars.push(bar);
       }
+
+      // Setup spinner blades with rotation and animation delay
+      const blades = spinner.querySelectorAll('.spinner-blade');
+      const bladeCount = blades.length;
+      blades.forEach((blade, i) => {
+        const rotation = (360 / bladeCount) * i;
+        const delay = (1 / bladeCount) * i;
+        blade.style.transform = `rotate(${rotation}deg)`;
+        blade.style.animationDelay = `${-delay}s`;
+      });
 
       // Listen for mode changes
       listen('overlay-mode', (event) => {
@@ -117,9 +151,9 @@
       });
 
       // Animation constants
-      const WAVE_SPEED = 200; // ms per wave cycle
-      const PHASE_OFFSET = 0.3; // phase offset between bars
-      const INTERPOLATION_FACTOR = 0.3; // smooth transition speed
+      const WAVE_SPEED = 120; // ms per wave cycle (faster)
+      const PHASE_OFFSET = 0.4; // phase offset between bars
+      const INTERPOLATION_FACTOR = 0.5; // faster response to audio
 
       // Listen for audio level events
       let animationFrame = null;
@@ -127,7 +161,8 @@
       let targetLevel = 0;
 
       listen('audio-level', (event) => {
-        targetLevel = event.payload;
+        // Amplify the incoming audio level
+        targetLevel = Math.min(1, event.payload * 4);
       });
 
       // Animate bars
@@ -136,13 +171,21 @@
         currentLevel += (targetLevel - currentLevel) * INTERPOLATION_FACTOR;
 
         bars.forEach((bar, index) => {
-          // Create wave pattern
+          // Create wave pattern with more variation
           const phase = (Date.now() / WAVE_SPEED + index * PHASE_OFFSET) % (Math.PI * 2);
-          const wave = Math.sin(phase) * 0.5 + 0.5; // 0 to 1
+          const wave = Math.sin(phase); // -1 to 1
           
-          // Combine wave pattern with audio level
-          const height = 4 + (currentLevel * 32 * (wave * 0.5 + 0.5));
-          bar.style.height = Math.max(4, Math.min(40, height)) + 'px';
+          // Secondary wave for more organic movement
+          const phase2 = (Date.now() / (WAVE_SPEED * 1.7) + index * PHASE_OFFSET * 0.7) % (Math.PI * 2);
+          const wave2 = Math.sin(phase2) * 0.3;
+          
+          // Combined wave effect (0.2 to 1.0 range for more dramatic variation)
+          const combinedWave = (wave + wave2) * 0.5 + 0.5; // normalize to 0-1
+          const waveMultiplier = 0.2 + combinedWave * 0.8;
+          
+          // Stronger amplitude: base height + (level * max_amplitude * wave_variation)
+          const height = 3 + (currentLevel * 25 * waveMultiplier);
+          bar.style.height = Math.max(3, Math.min(28, height)) + 'px';
         });
 
         animationFrame = requestAnimationFrame(animate);

@@ -10,6 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
@@ -27,8 +28,8 @@
       {
         "label": "overlay",
         "title": "Recording",
-        "width": 300,
-        "height": 80,
+        "width": 200,
+        "height": 50,
         "resizable": false,
         "center": false,
         "visible": false,
@@ -38,6 +39,7 @@
         "skipTaskbar": true,
         "visibleOnAllWorkspaces": true,
         "focusable": false,
+        "shadow": false,
         "backgroundColor": "#00000000",
         "url": "overlay.html"
       }
