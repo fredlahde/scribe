@@ -6,6 +6,7 @@ use std::thread;
 use tauri::{Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 
+use crate::constants::{position_overlay_bottom_center, OVERLAY_HEIGHT_RECORDING};
 use crate::history::HistoryDb;
 use crate::settings::RecordingState;
 use crate::transcribe::Language;
@@ -15,7 +16,7 @@ use crate::AppResources;
 /// Update tray icon to reflect the given state.
 fn set_tray_state(app: &tauri::AppHandle, state: RecordingState) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        let _ = update_tray_state(&tray, state);
+        let _ = update_tray_state(&tray, state, app);
     }
 }
 
@@ -34,7 +35,7 @@ pub fn handle_mute_toggle(app: &tauri::AppHandle) {
 
         // Update tray icon
         if let Some(tray) = app.tray_by_id(TRAY_ID) {
-            let _ = update_tray_state(&tray, RecordingState::Idle);
+            let _ = update_tray_state(&tray, RecordingState::Idle, app);
         }
 
         // Show notification
@@ -54,7 +55,7 @@ pub fn handle_mute_toggle(app: &tauri::AppHandle) {
 
         // Update tray icon
         if let Some(tray) = app.tray_by_id(TRAY_ID) {
-            let _ = update_tray_state(&tray, RecordingState::Muted);
+            let _ = update_tray_state(&tray, RecordingState::Muted, app);
         }
 
         // Show notification
@@ -114,7 +115,7 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
 
     // Update tray icon
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        let _ = update_tray_state(&tray, RecordingState::Recording);
+        let _ = update_tray_state(&tray, RecordingState::Recording, app);
     }
 
     // Start audio recorder
@@ -125,19 +126,7 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
     // Show overlay window
     if let Some(overlay) = app.get_webview_window("overlay") {
         // Position at bottom center of screen (accounting for monitor position in multi-monitor setups)
-        if let Ok(monitor) = overlay.current_monitor() {
-            if let Some(monitor) = monitor {
-                let size = monitor.size();
-                let position = monitor.position();
-                let overlay_width = 200;
-                let overlay_height = 50;
-                let x = position.x + (size.width as i32 - overlay_width) / 2;
-                let y = position.y + size.height as i32 - overlay_height - 60; // 60px from bottom
-
-                let _ = overlay
-                    .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
-            }
-        }
+        let _ = position_overlay_bottom_center(&overlay, OVERLAY_HEIGHT_RECORDING);
         let _ = overlay.show();
     }
 
