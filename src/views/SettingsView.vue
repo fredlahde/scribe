@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, onMounted, watch, nextTick, useTemplateRef } from "vue";
 import { load, type Store } from "@tauri-apps/plugin-store";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { useRouter } from "vue-router";
+import Icon from "../components/Icon.vue";
+import { getFilename } from "../utils/path";
 import { DEFAULT_HOTKEYS, STORE_KEYS, SETTINGS_STORE_FILE } from "../constants";
 
 const router = useRouter();
@@ -35,9 +37,9 @@ const isRefreshingDevices = ref(false);
 const saveError = ref<string | null>(null);
 const isSaving = ref(false);
 
-const hotkeyInputEn = ref<HTMLInputElement | null>(null);
-const hotkeyInputDe = ref<HTMLInputElement | null>(null);
-const hotkeyInputMute = ref<HTMLInputElement | null>(null);
+const hotkeyInputEn = useTemplateRef<HTMLInputElement>("hotkeyInputEn");
+const hotkeyInputDe = useTemplateRef<HTMLInputElement>("hotkeyInputDe");
+const hotkeyInputMute = useTemplateRef<HTMLInputElement>("hotkeyInputMute");
 
 watch(isRecordingHotkey, async (recording) => {
   if (recording) {
@@ -231,11 +233,6 @@ async function saveSettings() {
 function cancel() {
   router.push("/");
 }
-
-function getFilename(path: string | null): string {
-  if (!path) return "";
-  return path.split("/").pop() || path;
-}
 </script>
 
 <template>
@@ -265,21 +262,19 @@ function getFilename(path: string | null): string {
       <h2 class="section-title">Audio Input</h2>
       <p class="section-desc">Choose your microphone</p>
       <div class="field-row">
-        <select class="input" v-model="settings.audio_device">
+        <select id="audio-device" class="input" v-model="settings.audio_device">
           <option value="">System Default</option>
           <option v-for="device in audioDevices" :key="device" :value="device">
             {{ device }}
           </option>
         </select>
-        <button class="btn btn-icon" @click="loadAudioDevices" :disabled="isRefreshingDevices">
-          <svg 
-            width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            :class="{ spinning: isRefreshingDevices }"
-          >
-            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
-            <path d="M21 3v5h-5"/>
-          </svg>
+        <button 
+          class="btn btn-icon" 
+          @click="loadAudioDevices" 
+          :disabled="isRefreshingDevices"
+          aria-label="Refresh audio devices"
+        >
+          <Icon name="refresh" :size="14" :class="{ spinning: isRefreshingDevices }" />
         </button>
       </div>
     </section>
@@ -290,10 +285,11 @@ function getFilename(path: string | null): string {
       <p class="section-desc">Configure push-to-talk shortcuts</p>
 
       <div class="field">
-        <label class="field-label">English</label>
+        <label for="hotkey-en" class="field-label">English</label>
         <div class="field-row">
           <input
             ref="hotkeyInputEn"
+            id="hotkey-en"
             type="text"
             class="input hotkey-input"
             :class="{ recording: isRecordingHotkey }"
@@ -308,10 +304,11 @@ function getFilename(path: string | null): string {
       </div>
 
       <div class="field">
-        <label class="field-label">German <span class="optional">(optional)</span></label>
+        <label for="hotkey-de" class="field-label">German <span class="optional">(optional)</span></label>
         <div class="field-row">
           <input
             ref="hotkeyInputDe"
+            id="hotkey-de"
             type="text"
             class="input hotkey-input"
             :class="{ recording: isRecordingHotkeyDe }"
@@ -327,10 +324,11 @@ function getFilename(path: string | null): string {
       </div>
 
       <div class="field">
-        <label class="field-label">Mute/Unmute</label>
+        <label for="hotkey-mute" class="field-label">Mute/Unmute</label>
         <div class="field-row">
           <input
             ref="hotkeyInputMute"
+            id="hotkey-mute"
             type="text"
             class="input hotkey-input"
             :class="{ recording: isRecordingHotkeyMute }"
@@ -433,14 +431,6 @@ function getFilename(path: string | null): string {
 .hotkey-input.recording {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-muted);
-}
-
-.spinning {
-  animation: spin 0.6s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .actions {
