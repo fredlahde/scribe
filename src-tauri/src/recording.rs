@@ -108,6 +108,45 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
     if let Err(e) = res.recorder.start() {
         eprintln!("[Recording error: {}]", e);
     }
+    
+    drop(res);
+
+    // Show overlay window
+    if let Some(overlay) = app.get_webview_window("overlay") {
+        // Position at bottom center of screen
+        if let Ok(monitor) = overlay.current_monitor() {
+            if let Some(monitor) = monitor {
+                let size = monitor.size();
+                let overlay_width = 300;
+                let overlay_height = 80;
+                let x = (size.width as i32 - overlay_width) / 2;
+                let y = size.height as i32 - overlay_height - 100; // 100px from bottom
+                
+                let _ = overlay.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            }
+        }
+        let _ = overlay.show();
+        let _ = overlay.set_focus();
+    }
+
+    // Spawn thread to emit audio levels
+    let app_clone = app.clone();
+    thread::spawn(move || {
+        while {
+            let resources = app_clone.state::<Arc<Mutex<AppResources>>>();
+            let res = resources.lock().unwrap();
+            res.state.get() == RecordingState::Recording
+        } {
+            let level = {
+                let resources = app_clone.state::<Arc<Mutex<AppResources>>>();
+                let res = resources.lock().unwrap();
+                res.recorder.get_audio_level()
+            };
+            
+            let _ = app_clone.emit("audio-level", level);
+            thread::sleep(std::time::Duration::from_millis(50));
+        }
+    });
 }
 
 /// Process transcription result: save to history, type text, and notify user.
@@ -230,6 +269,11 @@ pub fn handle_recording_stop(app: &tauri::AppHandle) {
             // Not recording, nothing to do
             return;
         }
+    }
+
+    // Hide overlay window immediately when hotkey is released
+    if let Some(overlay) = app.get_webview_window("overlay") {
+        let _ = overlay.hide();
     }
 
     // Spawn a thread to handle transcription (it's blocking)

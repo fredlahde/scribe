@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recording Overlay</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .overlay-container {
+        width: 280px;
+        height: 60px;
+        background: rgba(0, 0, 0, 0.9);
+        border-radius: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      }
+
+      .waveform {
+        width: 100%;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+      }
+
+      .waveform-bar {
+        width: 3px;
+        background: white;
+        border-radius: 2px;
+        transition: height 0.1s ease-out;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="overlay-container">
+      <div class="waveform" id="waveform"></div>
+    </div>
+    <script type="module">
+      import { listen } from '@tauri-apps/api/event';
+
+      const waveform = document.getElementById('waveform');
+      const barCount = 20;
+      const bars = [];
+
+      // Create waveform bars
+      for (let i = 0; i < barCount; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'waveform-bar';
+        bar.style.height = '4px';
+        waveform.appendChild(bar);
+        bars.push(bar);
+      }
+
+      // Listen for audio level events
+      let animationFrame = null;
+      let currentLevel = 0;
+      let targetLevel = 0;
+
+      listen('audio-level', (event) => {
+        targetLevel = event.payload;
+      });
+
+      // Animate bars
+      function animate() {
+        // Smooth interpolation
+        currentLevel += (targetLevel - currentLevel) * 0.3;
+
+        bars.forEach((bar, index) => {
+          // Create wave pattern
+          const phase = (Date.now() / 200 + index * 0.3) % (Math.PI * 2);
+          const wave = Math.sin(phase) * 0.5 + 0.5; // 0 to 1
+          
+          // Combine wave pattern with audio level
+          const height = 4 + (currentLevel * 32 * (wave * 0.5 + 0.5));
+          bar.style.height = Math.max(4, Math.min(40, height)) + 'px';
+        });
+
+        animationFrame = requestAnimationFrame(animate);
+      }
+
+      animate();
+
+      // Cleanup on unload
+      window.addEventListener('beforeunload', () => {
+        if (animationFrame) {
+          cancelAnimationFrame(animationFrame);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -23,6 +23,21 @@
         "visible": true,
         "decorations": true,
         "transparent": false
+      },
+      {
+        "label": "overlay",
+        "title": "Recording",
+        "width": 300,
+        "height": 80,
+        "resizable": false,
+        "center": false,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visibleOnAllWorkspaces": true,
+        "url": "overlay.html"
       }
     ],
     "security": {

@@ -1,7 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, FromSample, Sample, SampleFormat, Stream, StreamConfig};
 use rubato::{FftFixedIn, Resampler};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::error::{Error, Result};
@@ -92,6 +92,8 @@ pub struct AudioRecorder {
     device: Device,
     stream_config: StreamConfig,
     sample_format: SampleFormat,
+    // Audio level for visualization (0.0 to 1.0, stored as u32 bits)
+    audio_level: Arc<AtomicU32>,
 }
 
 impl AudioRecorder {
@@ -117,6 +119,7 @@ impl AudioRecorder {
         let stream_config: StreamConfig = config.clone().into();
         let samples: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
         let recording = Arc::new(AtomicBool::new(false));
+        let audio_level = Arc::new(AtomicU32::new(0));
 
         let stream = Self::create_stream(
             &device,
@@ -124,6 +127,7 @@ impl AudioRecorder {
             sample_format,
             samples.clone(),
             recording.clone(),
+            audio_level.clone(),
         )?;
 
         // Start the stream immediately and keep it running
@@ -140,6 +144,7 @@ impl AudioRecorder {
             device,
             stream_config,
             sample_format,
+            audio_level,
         })
     }
 
@@ -149,11 +154,12 @@ impl AudioRecorder {
         sample_format: SampleFormat,
         samples: Arc<Mutex<Vec<f32>>>,
         recording: Arc<AtomicBool>,
+        audio_level: Arc<AtomicU32>,
     ) -> Result<Stream> {
         let stream = match sample_format {
-            SampleFormat::F32 => build_input_stream::<f32>(device, config, samples, recording),
-            SampleFormat::I16 => build_input_stream::<i16>(device, config, samples, recording),
-            SampleFormat::I32 => build_input_stream::<i32>(device, config, samples, recording),
+            SampleFormat::F32 => build_input_stream::<f32>(device, config, samples, recording, audio_level),
+            SampleFormat::I16 => build_input_stream::<i16>(device, config, samples, recording, audio_level),
+            SampleFormat::I32 => build_input_stream::<i32>(device, config, samples, recording, audio_level),
             format => Err(Error::Audio(format!(
                 "unsupported sample format: {:?}",
                 format
@@ -175,6 +181,9 @@ impl AudioRecorder {
         // Keep recording flag on for a moment to capture trailing audio
         std::thread::sleep(std::time::Duration::from_millis(150));
         self.recording.store(false, Ordering::SeqCst);
+        
+        // Reset audio level
+        self.audio_level.store(0, Ordering::Relaxed);
 
         // Take ownership of samples, leaving an empty buffer (clears sensitive audio data)
         let raw_samples = std::mem::take(&mut *self.samples.lock().unwrap());
@@ -227,6 +236,7 @@ impl AudioRecorder {
             self.sample_format,
             self.samples.clone(),
             self.recording.clone(),
+            self.audio_level.clone(),
         )?;
 
         stream
@@ -241,6 +251,11 @@ impl AudioRecorder {
     /// Check if the microphone is currently muted.
     pub fn is_muted(&self) -> bool {
         self.stream.is_none()
+    }
+
+    /// Get the current audio level (0.0 to 1.0).
+    pub fn get_audio_level(&self) -> f32 {
+        f32::from_bits(self.audio_level.load(Ordering::Relaxed))
     }
 
     /// Switch to a different audio input device.
@@ -289,6 +304,7 @@ impl AudioRecorder {
                 self.sample_format,
                 self.samples.clone(),
                 self.recording.clone(),
+                self.audio_level.clone(),
             )?;
 
             stream
@@ -308,6 +324,7 @@ fn build_input_stream<T>(
     config: &cpal::StreamConfig,
     samples: Arc<Mutex<Vec<f32>>>,
     recording: Arc<AtomicBool>,
+    audio_level: Arc<AtomicU32>,
 ) -> Result<Stream>
 where
     T: cpal::Sample + cpal::SizedSample,
@@ -319,10 +336,19 @@ where
             move |data: &[T], _: &cpal::InputCallbackInfo| {
                 if recording.load(Ordering::SeqCst) {
                     let mut buffer = samples.lock().unwrap();
+                    let mut sum_squares = 0.0f32;
+                    
                     for &sample in data {
                         // Apply gain and clamp to prevent clipping
                         let amplified = (f32::from_sample(sample) * AUDIO_GAIN).clamp(-1.0, 1.0);
                         buffer.push(amplified);
+                        sum_squares += amplified * amplified;
+                    }
+                    
+                    // Calculate RMS (root mean square) as audio level
+                    if !data.is_empty() {
+                        let rms = (sum_squares / data.len() as f32).sqrt();
+                        audio_level.store(rms.to_bits(), Ordering::Relaxed);
                     }
                 }
             },
