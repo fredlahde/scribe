@@ -111,14 +111,15 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
 
     // Show overlay window
     if let Some(overlay) = app.get_webview_window("overlay") {
-        // Position at bottom center of screen
+        // Position at bottom center of screen (accounting for monitor position in multi-monitor setups)
         if let Ok(monitor) = overlay.current_monitor() {
             if let Some(monitor) = monitor {
                 let size = monitor.size();
+                let position = monitor.position();
                 let overlay_width = 200;
                 let overlay_height = 50;
-                let x = (size.width as i32 - overlay_width) / 2;
-                let y = size.height as i32 - overlay_height - 60; // 60px from bottom
+                let x = position.x + (size.width as i32 - overlay_width) / 2;
+                let y = position.y + size.height as i32 - overlay_height - 60; // 60px from bottom
 
                 let _ = overlay
                     .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
@@ -132,23 +133,19 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
 
     // Spawn thread to emit audio levels
     let app_clone = app.clone();
-    thread::spawn(move || {
-        while {
-            let resources = app_clone.state::<Arc<Mutex<AppResources>>>();
-            let res = resources.lock().unwrap();
-            let is_recording = res.state.get() == RecordingState::Recording;
-            let level = res.recorder.get_audio_level();
-            drop(res);
+    thread::spawn(move || loop {
+        let resources = app_clone.state::<Arc<Mutex<AppResources>>>();
+        let res = resources.lock().unwrap();
+        let is_recording = res.state.get() == RecordingState::Recording;
+        let level = res.recorder.get_audio_level();
+        drop(res);
 
-            if is_recording {
-                let _ = app_clone.emit("audio-level", level);
-                true
-            } else {
-                false
-            }
-        } {
-            thread::sleep(std::time::Duration::from_millis(50));
+        if !is_recording {
+            break;
         }
+
+        let _ = app_clone.emit("audio-level", level);
+        thread::sleep(std::time::Duration::from_millis(50));
     });
 }
 

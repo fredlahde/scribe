@@ -115,6 +115,10 @@
       const barCount = 16;
       const bars = [];
 
+      // Track unlisten functions for cleanup
+      let unlistenMode = null;
+      let unlistenLevel = null;
+
       // Create waveform bars
       for (let i = 0; i < barCount; i++) {
         const bar = document.createElement('div');
@@ -148,7 +152,7 @@
           spinner.classList.remove('hidden');
           spinner.classList.add('visible');
         }
-      });
+      }).then(fn => { unlistenMode = fn; });
 
       // Animation constants
       const WAVE_SPEED = 120; // ms per wave cycle (faster)
@@ -163,7 +167,7 @@
       listen('audio-level', (event) => {
         // Amplify the incoming audio level
         targetLevel = Math.min(1, event.payload * 4);
-      });
+      }).then(fn => { unlistenLevel = fn; });
 
       // Animate bars
       function animate() {
@@ -197,6 +201,12 @@
       window.addEventListener('beforeunload', () => {
         if (animationFrame) {
           cancelAnimationFrame(animationFrame);
+        }
+        if (unlistenMode) {
+          unlistenMode();
+        }
+        if (unlistenLevel) {
+          unlistenLevel();
         }
       });
     </script>
