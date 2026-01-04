@@ -35,9 +35,9 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>>
 
 pub fn load_tray_icon(state: RecordingState) -> tauri::Result<Image<'static>> {
     let icon_bytes: &[u8] = match state {
-        RecordingState::Idle | RecordingState::Recording | RecordingState::Transcribing => {
-            include_bytes!("../icons/tray-idle.png")
-        }
+        RecordingState::Idle => include_bytes!("../icons/tray-idle.png"),
+        RecordingState::Recording => include_bytes!("../icons/tray-recording.png"),
+        RecordingState::Transcribing => include_bytes!("../icons/tray-transcribing.png"),
         RecordingState::Muted => include_bytes!("../icons/tray-muted.png"),
     };
 
