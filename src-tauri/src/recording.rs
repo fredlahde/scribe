@@ -108,6 +108,45 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
     if let Err(e) = res.recorder.start() {
         eprintln!("[Recording error: {}]", e);
     }
+
+    // Show overlay window
+    if let Some(overlay) = app.get_webview_window("overlay") {
+        // Position at bottom center of screen (accounting for monitor position in multi-monitor setups)
+        if let Ok(monitor) = overlay.current_monitor() {
+            if let Some(monitor) = monitor {
+                let size = monitor.size();
+                let position = monitor.position();
+                let overlay_width = 200;
+                let overlay_height = 50;
+                let x = position.x + (size.width as i32 - overlay_width) / 2;
+                let y = position.y + size.height as i32 - overlay_height - 60; // 60px from bottom
+
+                let _ = overlay
+                    .set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            }
+        }
+        let _ = overlay.show();
+    }
+
+    // Set overlay to waveform mode
+    let _ = app.emit("overlay-mode", "waveform");
+
+    // Spawn thread to emit audio levels
+    let app_clone = app.clone();
+    thread::spawn(move || loop {
+        let resources = app_clone.state::<Arc<Mutex<AppResources>>>();
+        let res = resources.lock().unwrap();
+        let is_recording = res.state.get() == RecordingState::Recording;
+        let level = res.recorder.get_audio_level();
+        drop(res);
+
+        if !is_recording {
+            break;
+        }
+
+        let _ = app_clone.emit("audio-level", level);
+        thread::sleep(std::time::Duration::from_millis(50));
+    });
 }
 
 /// Process transcription result: save to history, type text, and notify user.
@@ -218,6 +257,11 @@ fn run_transcription(app: tauri::AppHandle) {
         res.state.set(RecordingState::Idle);
     }
     set_tray_state(&app, RecordingState::Idle);
+
+    // Hide overlay after transcription completes
+    if let Some(overlay) = app.get_webview_window("overlay") {
+        let _ = overlay.hide();
+    }
 }
 
 /// Stop recording and spawn transcription thread.
@@ -231,6 +275,9 @@ pub fn handle_recording_stop(app: &tauri::AppHandle) {
             return;
         }
     }
+
+    // Switch overlay to spinner mode when hotkey is released
+    let _ = app.emit("overlay-mode", "spinner");
 
     // Spawn a thread to handle transcription (it's blocking)
     let app_clone = app.clone();
