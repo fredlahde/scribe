@@ -3,6 +3,7 @@ import { ref, computed, onUnmounted } from "vue";
 import Icon from "./Icon.vue";
 import type { Transcription } from "../stores/pendingDelete";
 import { formatRelativeTime } from "../utils/time";
+import { getLanguageLabel } from "../constants";
 
 const props = defineProps<{
   transcription: Transcription;
@@ -29,10 +30,9 @@ const relativeTime = computed(() =>
   formatRelativeTime(props.transcription.created_at)
 );
 
-const languageLabel = computed(() => {
-  const map: Record<string, string> = { en: "EN", de: "DE" };
-  return map[props.transcription.language] ?? props.transcription.language.toUpperCase();
-});
+const languageLabel = computed(() => 
+  getLanguageLabel(props.transcription.language)
+);
 
 const duration = computed(() => {
   return `${(props.transcription.duration_ms / 1000).toFixed(1)}s`;

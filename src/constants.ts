@@ -51,3 +51,37 @@ export const ICON_NAMES = [
  * Type-safe icon name type derived from available icons
  */
 export type IconName = typeof ICON_NAMES[number];
+
+/**
+ * Supported transcription languages
+ */
+export const LANGUAGES = {
+  en: {
+    code: "en",
+    label: "EN",
+    name: "English",
+  },
+  de: {
+    code: "de",
+    label: "DE",
+    name: "German",
+  },
+} as const;
+
+export type LanguageCode = keyof typeof LANGUAGES;
+
+/**
+ * Get display label for a language code
+ */
+export function getLanguageLabel(code: string): string {
+  const lang = LANGUAGES[code as LanguageCode];
+  return lang?.label ?? code.toUpperCase();
+}
+
+/**
+ * Get full name for a language code
+ */
+export function getLanguageName(code: string): string {
+  const lang = LANGUAGES[code as LanguageCode];
+  return lang?.name ?? code;
+}
