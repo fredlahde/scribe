@@ -32,3 +32,22 @@ export const STORE_KEYS = {
  * Store filename for settings persistence
  */
 export const SETTINGS_STORE_FILE = "settings.json";
+
+/**
+ * Available icon names for the Icon component
+ */
+export const ICON_NAMES = [
+  "back",
+  "settings",
+  "copy",
+  "check",
+  "trash",
+  "error",
+  "microphone",
+  "refresh",
+] as const;
+
+/**
+ * Type-safe icon name type derived from available icons
+ */
+export type IconName = typeof ICON_NAMES[number];
