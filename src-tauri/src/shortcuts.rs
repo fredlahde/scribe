@@ -2,6 +2,7 @@
 
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
+use crate::error::{Error, Result};
 use crate::recording::{handle_mute_toggle, handle_recording_start, handle_recording_stop};
 use crate::settings::AppSettings;
 use crate::transcribe::Language;
@@ -11,8 +12,10 @@ pub fn setup_shortcut(
     app: &tauri::AppHandle,
     shortcut_str: &str,
     language: Language,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let shortcut: Shortcut = shortcut_str.parse()?;
+) -> Result<()> {
+    let shortcut: Shortcut = shortcut_str
+        .parse()
+        .map_err(|e| Error::Hotkey(format!("invalid shortcut '{}': {}", shortcut_str, e)))?;
     let app_handle = app.clone();
 
     app.global_shortcut()
@@ -27,18 +30,18 @@ pub fn setup_shortcut(
                     handle_recording_stop(&app);
                 }
             }
-        })?;
+        })
+        .map_err(|e| Error::Hotkey(format!("failed to register shortcut: {}", e)))?;
 
     eprintln!("[Shortcut registered: {} ({:?})]", shortcut_str, language);
     Ok(())
 }
 
 /// Setup the mute toggle shortcut.
-pub fn setup_mute_shortcut(
-    app: &tauri::AppHandle,
-    shortcut_str: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let shortcut: Shortcut = shortcut_str.parse()?;
+pub fn setup_mute_shortcut(app: &tauri::AppHandle, shortcut_str: &str) -> Result<()> {
+    let shortcut: Shortcut = shortcut_str
+        .parse()
+        .map_err(|e| Error::Hotkey(format!("invalid shortcut '{}': {}", shortcut_str, e)))?;
     let app_handle = app.clone();
 
     app.global_shortcut()
@@ -47,7 +50,8 @@ pub fn setup_mute_shortcut(
             if event.state == ShortcutState::Pressed {
                 handle_mute_toggle(&app_handle);
             }
-        })?;
+        })
+        .map_err(|e| Error::Hotkey(format!("failed to register shortcut: {}", e)))?;
 
     eprintln!("[Mute shortcut registered: {}]", shortcut_str);
     Ok(())
@@ -58,7 +62,7 @@ pub fn setup_mute_shortcut(
 pub fn register_all_shortcuts(
     app: &tauri::AppHandle,
     settings: &AppSettings,
-) -> Result<(), String> {
+) -> std::result::Result<(), String> {
     // Unregister all shortcuts first
     let shortcut_manager = app.global_shortcut();
     shortcut_manager
@@ -66,26 +70,17 @@ pub fn register_all_shortcuts(
         .map_err(|e| format!("failed to unregister shortcuts: {}", e))?;
 
     // Register English shortcut
-    if let Err(e) = setup_shortcut(app, &settings.hotkey_en, Language::English) {
-        eprintln!("[Failed to setup English shortcut: {}]", e);
-        return Err(format!("failed to setup English shortcut: {}", e));
-    }
+    setup_shortcut(app, &settings.hotkey_en, Language::English).map_err(|e| e.to_string())?;
 
     // Register German shortcut if configured
     if let Some(ref hotkey) = settings.hotkey_de {
         if !hotkey.is_empty() {
-            if let Err(e) = setup_shortcut(app, hotkey, Language::German) {
-                eprintln!("[Failed to setup German shortcut: {}]", e);
-                return Err(format!("failed to setup German shortcut: {}", e));
-            }
+            setup_shortcut(app, hotkey, Language::German).map_err(|e| e.to_string())?;
         }
     }
 
     // Register mute shortcut
-    if let Err(e) = setup_mute_shortcut(app, &settings.hotkey_mute) {
-        eprintln!("[Failed to setup mute shortcut: {}]", e);
-        return Err(format!("failed to setup mute shortcut: {}", e));
-    }
+    setup_mute_shortcut(app, &settings.hotkey_mute).map_err(|e| e.to_string())?;
 
     Ok(())
 }

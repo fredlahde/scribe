@@ -8,7 +8,6 @@ pub enum Error {
     #[error("database error: {0}")]
     Database(String),
 
-    #[allow(dead_code)]
     #[error("hotkey error: {0}")]
     Hotkey(String),
 
@@ -26,3 +25,9 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+impl From<Error> for String {
+    fn from(err: Error) -> Self {
+        err.to_string()
+    }
+}

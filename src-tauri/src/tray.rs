@@ -9,7 +9,7 @@ use crate::settings::RecordingState;
 
 pub const TRAY_ID: &str = "main";
 
-pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {
+pub fn create_tray<R: Runtime>(app: &AppHandle<R>, hotkey_en: &str) -> tauri::Result<TrayIcon<R>> {
     let open_i = MenuItem::with_id(app, "open", "Open Scribe", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit Scribe", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open_i, &quit_i])?;
@@ -17,7 +17,7 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>>
     let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(load_tray_icon(RecordingState::Idle)?)
         .menu(&menu)
-        .tooltip("Scribe - Ready (Press F2 to record)")
+        .tooltip(format!("Scribe - Ready (Press {} to record)", hotkey_en))
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => {
@@ -62,16 +62,18 @@ pub fn load_tray_icon(state: RecordingState) -> tauri::Result<Image<'static>> {
 pub fn update_tray_state<R: Runtime>(
     tray: &TrayIcon<R>,
     state: RecordingState,
+    hotkey_en: &str,
+    hotkey_mute: &str,
 ) -> tauri::Result<()> {
     let tooltip = match state {
-        RecordingState::Idle => "Scribe - Ready",
-        RecordingState::Recording => "Scribe - Recording...",
-        RecordingState::Transcribing => "Scribe - Transcribing...",
-        RecordingState::Muted => "Scribe - Muted (Press F4 to unmute)",
-        RecordingState::WarmingUp => "Scribe - Starting up...",
+        RecordingState::Idle => format!("Scribe - Ready (Press {} to record)", hotkey_en),
+        RecordingState::Recording => "Scribe - Recording...".to_string(),
+        RecordingState::Transcribing => "Scribe - Transcribing...".to_string(),
+        RecordingState::Muted => format!("Scribe - Muted (Press {} to unmute)", hotkey_mute),
+        RecordingState::WarmingUp => "Scribe - Starting up...".to_string(),
     };
 
-    tray.set_tooltip(Some(tooltip))?;
+    tray.set_tooltip(Some(&tooltip))?;
     tray.set_icon(Some(load_tray_icon(state)?))?;
 
     Ok(())
