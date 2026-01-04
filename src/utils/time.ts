@@ -15,6 +15,10 @@ export function formatRelativeTime(
 ): string {
   const created = typeof date === "string" ? new Date(date) : date;
   const diffMs = now.getTime() - created.getTime();
+
+  // Handle future dates (e.g., due to clock skew)
+  if (diffMs < 0) return "Just now";
+
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);

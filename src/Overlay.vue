@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, reactive, onMounted, onUnmounted } from "vue";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 type OverlayMode = "warmup" | "waveform" | "spinner";
 
 const mode = ref<OverlayMode>("waveform");
-const bars = Array.from({ length: 16 }, (_, i) => i);
+const barCount = 16;
+const bars = Array.from({ length: barCount }, (_, i) => i);
+
+// Reactive bar styles - Vue will automatically update the DOM
+const barStyles = reactive<Array<{ height: string; opacity: string }>>(
+  Array.from({ length: barCount }, () => ({ height: "3px", opacity: "" }))
+);
 
 let unlistenMode: UnlistenFn | null = null;
 let unlistenLevel: UnlistenFn | null = null;
@@ -56,11 +62,8 @@ function animate() {
       // Opacity ranges from 0.6 to 1.0 (more subtle)
       const opacity = 0.6 + wave * 0.4;
 
-      const barElement = document.querySelector(`.waveform-bar:nth-child(${index + 1})`) as HTMLElement;
-      if (barElement) {
-        barElement.style.height = height + "px";
-        barElement.style.opacity = String(opacity);
-      }
+      barStyles[index].height = height + "px";
+      barStyles[index].opacity = String(opacity);
     });
 
     animationFrame = requestAnimationFrame(animate);
@@ -69,10 +72,7 @@ function animate() {
 
   // Reset opacity for normal mode
   bars.forEach((_, index) => {
-    const barElement = document.querySelector(`.waveform-bar:nth-child(${index + 1})`) as HTMLElement;
-    if (barElement) {
-      barElement.style.opacity = "";
-    }
+    barStyles[index].opacity = "";
   });
 
   // Smooth interpolation
@@ -93,20 +93,32 @@ function animate() {
 
     // Stronger amplitude: base height + (level * max_amplitude * wave_variation)
     const height = 3 + (currentLevel * 25 * waveMultiplier);
-    const barElement = document.querySelector(`.waveform-bar:nth-child(${index + 1})`) as HTMLElement;
-    if (barElement) {
-      barElement.style.height = Math.max(3, Math.min(28, height)) + "px";
-    }
+    barStyles[index].height = Math.max(3, Math.min(28, height)) + "px";
   });
 
   animationFrame = requestAnimationFrame(animate);
+}
+
+function spinnerBladeStyle(index: number) {
+  const bladeCount = 8;
+  const rotation = (360 / bladeCount) * index;
+  const delay = (1 / bladeCount) * index;
+  return {
+    transform: `rotate(${rotation}deg)`,
+    animationDelay: `${-delay}s`,
+  };
 }
 </script>
 
 <template>
   <div class="overlay-container" :class="{ 'with-text': mode === 'warmup' }">
     <div v-if="mode === 'warmup' || mode === 'waveform'" class="waveform" :class="{ warmup: mode === 'warmup' }">
-      <div v-for="i in bars" :key="i" class="waveform-bar"></div>
+      <div
+        v-for="(_, i) in bars"
+        :key="i"
+        class="waveform-bar"
+        :style="{ height: barStyles[i].height, opacity: barStyles[i].opacity || undefined }"
+      ></div>
     </div>
     <div v-if="mode === 'spinner'" class="spinner">
       <div v-for="i in 8" :key="i" class="spinner-blade" :style="spinnerBladeStyle(i - 1)"></div>
@@ -114,19 +126,3 @@ function animate() {
     <span v-if="mode === 'warmup'" class="warmup-text">Starting up</span>
   </div>
 </template>
-
-<script lang="ts">
-export default {
-  methods: {
-    spinnerBladeStyle(index: number) {
-      const bladeCount = 8;
-      const rotation = (360 / bladeCount) * index;
-      const delay = (1 / bladeCount) * index;
-      return {
-        transform: `rotate(${rotation}deg)`,
-        animationDelay: `${-delay}s`,
-      };
-    },
-  },
-};
-</script>
