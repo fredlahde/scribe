@@ -59,7 +59,7 @@ pub fn spawn_warmup(app: &tauri::AppHandle, transcriber: Arc<Transcriber>) {
         }
 
         // Hide overlay and reset state
-        hide_warmup_overlay(&app_handle, &hotkey_en, &hotkey_mute);
+        hide_warmup_overlay(&app_handle);
     });
 }
 
@@ -70,23 +70,24 @@ fn show_warmup_overlay(app: &tauri::AppHandle) {
     }
 }
 
-fn hide_warmup_overlay(app: &tauri::AppHandle, hotkey_en: &str, hotkey_mute: &str) {
+fn hide_warmup_overlay(app: &tauri::AppHandle) {
     if let Some(overlay) = app.get_webview_window("overlay") {
         let _ = overlay.hide();
     }
 
-    let final_state = {
+    let (final_state, hotkey_en, hotkey_mute) = {
         let resources = app.state::<Arc<Mutex<AppResources>>>();
         let res = resources.lock().unwrap();
-        if res.state.get() == RecordingState::WarmingUp {
+        let state = if res.state.get() == RecordingState::WarmingUp {
             res.state.set(RecordingState::Idle);
             RecordingState::Idle
         } else {
             res.state.get()
-        }
+        };
+        (state, res.hotkey_en.clone(), res.hotkey_mute.clone())
     };
 
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        let _ = update_tray_state(&tray, final_state, hotkey_en, hotkey_mute);
+        let _ = update_tray_state(&tray, final_state, &hotkey_en, &hotkey_mute);
     }
 }

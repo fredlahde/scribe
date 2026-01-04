@@ -70,26 +70,17 @@ pub fn register_all_shortcuts(
         .map_err(|e| format!("failed to unregister shortcuts: {}", e))?;
 
     // Register English shortcut
-    if let Err(e) = setup_shortcut(app, &settings.hotkey_en, Language::English) {
-        eprintln!("[Failed to setup English shortcut: {}]", e);
-        return Err(format!("failed to setup English shortcut: {}", e));
-    }
+    setup_shortcut(app, &settings.hotkey_en, Language::English).map_err(|e| e.to_string())?;
 
     // Register German shortcut if configured
     if let Some(ref hotkey) = settings.hotkey_de {
         if !hotkey.is_empty() {
-            if let Err(e) = setup_shortcut(app, hotkey, Language::German) {
-                eprintln!("[Failed to setup German shortcut: {}]", e);
-                return Err(format!("failed to setup German shortcut: {}", e));
-            }
+            setup_shortcut(app, hotkey, Language::German).map_err(|e| e.to_string())?;
         }
     }
 
     // Register mute shortcut
-    if let Err(e) = setup_mute_shortcut(app, &settings.hotkey_mute) {
-        eprintln!("[Failed to setup mute shortcut: {}]", e);
-        return Err(format!("failed to setup mute shortcut: {}", e));
-    }
+    setup_mute_shortcut(app, &settings.hotkey_mute).map_err(|e| e.to_string())?;
 
     Ok(())
 }

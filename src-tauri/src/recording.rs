@@ -84,6 +84,10 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
     let resources = app.state::<Arc<Mutex<AppResources>>>();
     let mut res = resources.lock().unwrap();
 
+    // Extract hotkeys early since we need them for early return notifications
+    let hotkey_en = res.hotkey_en.clone();
+    let hotkey_mute = res.hotkey_mute.clone();
+
     // Check if warming up
     if res.state.get() == RecordingState::WarmingUp {
         eprintln!("[Cannot record - model is still warming up]");
@@ -105,7 +109,10 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
             .notification()
             .builder()
             .title("Scribe")
-            .body("Microphone is muted. Press F4 to unmute.")
+            .body(format!(
+                "Microphone is muted. Press {} to unmute.",
+                hotkey_mute
+            ))
             .show();
         return;
     }
@@ -117,10 +124,6 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
         show_main_window(app);
         return;
     }
-
-    // Extract hotkeys while we have the lock
-    let hotkey_en = res.hotkey_en.clone();
-    let hotkey_mute = res.hotkey_mute.clone();
 
     // Store the language to use for transcription
     res.pending_language = language;
