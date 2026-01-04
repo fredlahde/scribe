@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, useTemplateRef } from "vue";
+import { ref, onMounted, useTemplateRef } from "vue";
 import { load, type Store } from "@tauri-apps/plugin-store";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { useRouter } from "vue-router";
 import Icon from "../components/Icon.vue";
+import HotkeyInput from "../components/HotkeyInput.vue";
 import { getFilename } from "../utils/path";
 import { DEFAULT_HOTKEYS, STORE_KEYS, SETTINGS_STORE_FILE } from "../constants";
 
@@ -26,9 +27,6 @@ const settings = ref<Settings>({
   audio_device: "",
 });
 
-const isRecordingHotkey = ref(false);
-const isRecordingHotkeyDe = ref(false);
-const isRecordingHotkeyMute = ref(false);
 const showModelWarning = ref(false);
 let store: Store | null = null;
 
@@ -37,30 +35,9 @@ const isRefreshingDevices = ref(false);
 const saveError = ref<string | null>(null);
 const isSaving = ref(false);
 
-const hotkeyInputEn = useTemplateRef<HTMLInputElement>("hotkeyInputEn");
-const hotkeyInputDe = useTemplateRef<HTMLInputElement>("hotkeyInputDe");
-const hotkeyInputMute = useTemplateRef<HTMLInputElement>("hotkeyInputMute");
-
-watch(isRecordingHotkey, async (recording) => {
-  if (recording) {
-    await nextTick();
-    hotkeyInputEn.value?.focus();
-  }
-});
-
-watch(isRecordingHotkeyDe, async (recording) => {
-  if (recording) {
-    await nextTick();
-    hotkeyInputDe.value?.focus();
-  }
-});
-
-watch(isRecordingHotkeyMute, async (recording) => {
-  if (recording) {
-    await nextTick();
-    hotkeyInputMute.value?.focus();
-  }
-});
+const hotkeyEnRef = useTemplateRef<InstanceType<typeof HotkeyInput>>("hotkeyEnRef");
+const hotkeyDeRef = useTemplateRef<InstanceType<typeof HotkeyInput>>("hotkeyDeRef");
+const hotkeyMuteRef = useTemplateRef<InstanceType<typeof HotkeyInput>>("hotkeyMuteRef");
 
 async function loadAudioDevices() {
   isRefreshingDevices.value = true;
@@ -118,71 +95,18 @@ async function browseModel() {
   }
 }
 
-function startRecordingHotkey(type: "en" | "de" | "mute") {
-  const wasRecording = isRecordingHotkey.value || isRecordingHotkeyDe.value || isRecordingHotkeyMute.value;
-  
-  if (type === "en") {
-    isRecordingHotkey.value = !isRecordingHotkey.value;
-    isRecordingHotkeyDe.value = false;
-    isRecordingHotkeyMute.value = false;
-  } else if (type === "de") {
-    isRecordingHotkeyDe.value = !isRecordingHotkeyDe.value;
-    isRecordingHotkey.value = false;
-    isRecordingHotkeyMute.value = false;
-  } else {
-    isRecordingHotkeyMute.value = !isRecordingHotkeyMute.value;
-    isRecordingHotkey.value = false;
-    isRecordingHotkeyDe.value = false;
-  }
-
-  const isNowRecording = isRecordingHotkey.value || isRecordingHotkeyDe.value || isRecordingHotkeyMute.value;
-  
-  // Disable shortcuts when starting to record a hotkey
-  if (!wasRecording && isNowRecording) {
-    invoke("disable_shortcuts").catch((e) => console.error("Failed to disable shortcuts:", e));
-  }
-  // Re-enable shortcuts when cancelling (not when a key is captured - that's handled in handleKeydown)
-  else if (wasRecording && !isNowRecording) {
-    invoke("enable_shortcuts").catch((e) => console.error("Failed to enable shortcuts:", e));
-  }
+function handleRecordingStart(refName: "hotkeyEnRef" | "hotkeyDeRef" | "hotkeyMuteRef") {
+  // Stop other recordings
+  const refs = { hotkeyEnRef, hotkeyDeRef, hotkeyMuteRef };
+  Object.entries(refs).forEach(([name, ref]) => {
+    if (name !== refName && ref.value) {
+      ref.value.stopRecording();
+    }
+  });
+  invoke("disable_shortcuts").catch((e) => console.error("Failed to disable shortcuts:", e));
 }
 
-function handleKeydown(e: KeyboardEvent, type: "en" | "de" | "mute") {
-  const isRecording =
-    (type === "en" && isRecordingHotkey.value) ||
-    (type === "de" && isRecordingHotkeyDe.value) ||
-    (type === "mute" && isRecordingHotkeyMute.value);
-
-  if (!isRecording) return;
-
-  e.preventDefault();
-
-  const parts: string[] = [];
-  if (e.ctrlKey || e.metaKey) parts.push("CommandOrControl");
-  if (e.altKey) parts.push("Alt");
-  if (e.shiftKey) parts.push("Shift");
-
-  let key = e.key;
-  if (key === " ") key = "Space";
-  if (key.length === 1) key = key.toUpperCase();
-
-  if (["Control", "Alt", "Shift", "Meta"].includes(key)) return;
-
-  parts.push(key);
-  const hotkeyStr = parts.join("+");
-
-  if (type === "en") {
-    settings.value.hotkey = hotkeyStr;
-    isRecordingHotkey.value = false;
-  } else if (type === "de") {
-    settings.value.hotkey_de = hotkeyStr;
-    isRecordingHotkeyDe.value = false;
-  } else {
-    settings.value.hotkey_mute = hotkeyStr;
-    isRecordingHotkeyMute.value = false;
-  }
-
-  // Re-enable shortcuts after capturing a key
+function handleRecordingEnd() {
   invoke("enable_shortcuts").catch((e) => console.error("Failed to enable shortcuts:", e));
 }
 
@@ -284,63 +208,29 @@ function cancel() {
       <h2 class="section-title">Hotkeys</h2>
       <p class="section-desc">Configure push-to-talk shortcuts</p>
 
-      <div class="field">
-        <label for="hotkey-en" class="field-label">English</label>
-        <div class="field-row">
-          <input
-            ref="hotkeyInputEn"
-            id="hotkey-en"
-            type="text"
-            class="input hotkey-input"
-            :class="{ recording: isRecordingHotkey }"
-            :value="isRecordingHotkey ? 'Press a key...' : settings.hotkey"
-            readonly
-            @keydown="handleKeydown($event, 'en')"
-          />
-          <button class="btn" @click="startRecordingHotkey('en')">
-            {{ isRecordingHotkey ? "Cancel" : "Set" }}
-          </button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="hotkey-de" class="field-label">German <span class="optional">(optional)</span></label>
-        <div class="field-row">
-          <input
-            ref="hotkeyInputDe"
-            id="hotkey-de"
-            type="text"
-            class="input hotkey-input"
-            :class="{ recording: isRecordingHotkeyDe }"
-            :value="isRecordingHotkeyDe ? 'Press a key...' : (settings.hotkey_de || '')"
-            readonly
-            placeholder="Not set"
-            @keydown="handleKeydown($event, 'de')"
-          />
-          <button class="btn" @click="startRecordingHotkey('de')">
-            {{ isRecordingHotkeyDe ? "Cancel" : "Set" }}
-          </button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="hotkey-mute" class="field-label">Mute/Unmute</label>
-        <div class="field-row">
-          <input
-            ref="hotkeyInputMute"
-            id="hotkey-mute"
-            type="text"
-            class="input hotkey-input"
-            :class="{ recording: isRecordingHotkeyMute }"
-            :value="isRecordingHotkeyMute ? 'Press a key...' : (settings.hotkey_mute || 'F4')"
-            readonly
-            @keydown="handleKeydown($event, 'mute')"
-          />
-          <button class="btn" @click="startRecordingHotkey('mute')">
-            {{ isRecordingHotkeyMute ? "Cancel" : "Set" }}
-          </button>
-        </div>
-      </div>
+      <HotkeyInput
+        ref="hotkeyEnRef"
+        v-model="settings.hotkey"
+        label="English"
+        @recording-start="handleRecordingStart('hotkeyEnRef')"
+        @recording-end="handleRecordingEnd"
+      />
+      <HotkeyInput
+        ref="hotkeyDeRef"
+        v-model="settings.hotkey_de"
+        label="German"
+        :optional="true"
+        placeholder="Not set"
+        @recording-start="handleRecordingStart('hotkeyDeRef')"
+        @recording-end="handleRecordingEnd"
+      />
+      <HotkeyInput
+        ref="hotkeyMuteRef"
+        v-model="settings.hotkey_mute"
+        label="Mute/Unmute"
+        @recording-start="handleRecordingStart('hotkeyMuteRef')"
+        @recording-end="handleRecordingEnd"
+      />
     </section>
 
     <!-- Actions -->
@@ -376,23 +266,6 @@ function cancel() {
   margin: 0 0 12px 0;
 }
 
-.field {
-  margin-bottom: 12px;
-}
-
-.field-label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.optional {
-  font-weight: 400;
-  color: var(--text-muted);
-}
-
 .field-row {
   display: flex;
   gap: 8px;
@@ -421,16 +294,6 @@ function cancel() {
 
 .model-box.empty .model-name {
   color: var(--text-muted);
-}
-
-.hotkey-input {
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-
-.hotkey-input.recording {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
 .actions {

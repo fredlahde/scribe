@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import type { IconName } from "../constants";
+
 defineProps<{
-  name: string;
+  name: IconName;
   size?: number;
 }>();
 </script>

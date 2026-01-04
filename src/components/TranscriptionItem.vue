@@ -2,6 +2,8 @@
 import { ref, computed, onUnmounted } from "vue";
 import Icon from "./Icon.vue";
 import type { Transcription } from "../stores/pendingDelete";
+import { formatRelativeTime } from "../utils/time";
+import { getLanguageLabel } from "../constants";
 
 const props = defineProps<{
   transcription: Transcription;
@@ -24,27 +26,13 @@ onUnmounted(() => {
 // Note: relativeTime uses new Date() which is not reactive. The time display
 // won't automatically update (e.g., "Just now" to "1m ago"). This is a common
 // and acceptable limitation for list items - the value updates on next render.
-const relativeTime = computed(() => {
-  const now = new Date();
-  const created = new Date(props.transcription.created_at);
-  const diffMs = now.getTime() - created.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
+const relativeTime = computed(() => 
+  formatRelativeTime(props.transcription.created_at)
+);
 
-  if (diffSec < 60) return "Just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHour < 24) return `${diffHour}h ago`;
-  if (diffDay < 7) return `${diffDay}d ago`;
-
-  return created.toLocaleDateString();
-});
-
-const languageLabel = computed(() => {
-  const map: Record<string, string> = { en: "EN", de: "DE" };
-  return map[props.transcription.language] ?? props.transcription.language.toUpperCase();
-});
+const languageLabel = computed(() => 
+  getLanguageLabel(props.transcription.language)
+);
 
 const duration = computed(() => {
   return `${(props.transcription.duration_ms / 1000).toFixed(1)}s`;
