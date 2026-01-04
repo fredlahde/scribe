@@ -108,8 +108,6 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
     if let Err(e) = res.recorder.start() {
         eprintln!("[Recording error: {}]", e);
     }
-    
-    drop(res);
 
     // Show overlay window
     if let Some(overlay) = app.get_webview_window("overlay") {
@@ -134,15 +132,17 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
         while {
             let resources = app_clone.state::<Arc<Mutex<AppResources>>>();
             let res = resources.lock().unwrap();
-            res.state.get() == RecordingState::Recording
-        } {
-            let level = {
-                let resources = app_clone.state::<Arc<Mutex<AppResources>>>();
-                let res = resources.lock().unwrap();
-                res.recorder.get_audio_level()
-            };
+            let is_recording = res.state.get() == RecordingState::Recording;
+            let level = res.recorder.get_audio_level();
+            drop(res);
             
-            let _ = app_clone.emit("audio-level", level);
+            if is_recording {
+                let _ = app_clone.emit("audio-level", level);
+                true
+            } else {
+                false
+            }
+        } {
             thread::sleep(std::time::Duration::from_millis(50));
         }
     });

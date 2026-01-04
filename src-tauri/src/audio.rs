@@ -92,7 +92,7 @@ pub struct AudioRecorder {
     device: Device,
     stream_config: StreamConfig,
     sample_format: SampleFormat,
-    // Audio level for visualization (0.0 to 1.0, stored as u32 bits)
+    // Audio level for visualization (RMS of samples, typically 0.0 to 1.0, may exceed for loud audio)
     audio_level: Arc<AtomicU32>,
 }
 

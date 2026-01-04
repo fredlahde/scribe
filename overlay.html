@@ -70,6 +70,11 @@
         bars.push(bar);
       }
 
+      // Animation constants
+      const WAVE_SPEED = 200; // ms per wave cycle
+      const PHASE_OFFSET = 0.3; // phase offset between bars
+      const INTERPOLATION_FACTOR = 0.3; // smooth transition speed
+
       // Listen for audio level events
       let animationFrame = null;
       let currentLevel = 0;
@@ -82,11 +87,11 @@
       // Animate bars
       function animate() {
         // Smooth interpolation
-        currentLevel += (targetLevel - currentLevel) * 0.3;
+        currentLevel += (targetLevel - currentLevel) * INTERPOLATION_FACTOR;
 
         bars.forEach((bar, index) => {
           // Create wave pattern
-          const phase = (Date.now() / 200 + index * 0.3) % (Math.PI * 2);
+          const phase = (Date.now() / WAVE_SPEED + index * PHASE_OFFSET) % (Math.PI * 2);
           const wave = Math.sin(phase) * 0.5 + 0.5; // 0 to 1
           
           // Combine wave pattern with audio level
