@@ -155,6 +155,16 @@ pub fn run() {
                 window.open_devtools();
             }
 
+            // Setup overlay window
+            if let Some(overlay) = app.get_webview_window("overlay") {
+                // Make sure it's hidden initially
+                let _ = overlay.hide();
+
+                // Open devtools in debug mode
+                #[cfg(debug_assertions)]
+                overlay.open_devtools();
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())
