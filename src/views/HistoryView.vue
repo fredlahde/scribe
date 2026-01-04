@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import Icon from "../components/Icon.vue";
 import TranscriptionItem from "../components/TranscriptionItem.vue";
 import {
   usePendingDelete,
@@ -119,11 +120,7 @@ onUnmounted(() => {
     <!-- Error -->
     <div v-else-if="error" class="state-box">
       <div class="state-icon state-icon-error">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="m15 9-6 6"/>
-          <path d="m9 9 6 6"/>
-        </svg>
+        <Icon name="error" :size="24" />
       </div>
       <p class="state-text">{{ error }}</p>
       <button class="btn btn-primary" @click="fetchHistory">Retry</button>
@@ -132,18 +129,14 @@ onUnmounted(() => {
     <!-- Empty -->
     <div v-else-if="!hasTranscriptions" class="state-box">
       <div class="state-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-          <line x1="12" x2="12" y1="19" y2="22"/>
-        </svg>
+        <Icon name="microphone" :size="32" />
       </div>
       <h3 class="state-title">No transcriptions yet</h3>
       <p class="state-text">Press your hotkey to start recording</p>
     </div>
 
     <!-- List -->
-    <div v-else class="list">
+    <TransitionGroup v-else name="list" tag="div" class="list">
       <TranscriptionItem
         v-for="item in transcriptions"
         :key="item.id"
@@ -151,7 +144,7 @@ onUnmounted(() => {
         @copy="handleCopy"
         @delete="handleDelete"
       />
-    </div>
+    </TransitionGroup>
 
     <!-- Undo toast -->
     <Transition name="toast">
@@ -225,11 +218,26 @@ onUnmounted(() => {
   border: 2px solid var(--border-light);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+/* List transitions */
+.list-enter-active,
+.list-leave-active {
+  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+}
+
+.list-enter-from {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.list-move {
+  transition: transform 0.3s var(--ease);
 }
 
 /* Toast */

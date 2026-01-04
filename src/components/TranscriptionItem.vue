@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from "vue";
+import Icon from "./Icon.vue";
 import type { Transcription } from "../stores/pendingDelete";
 
 const props = defineProps<{
@@ -82,22 +83,19 @@ function handleDelete() {
         class="action-btn"
         :class="{ copied: showCopied }"
         @click="handleCopy"
+        :aria-label="showCopied ? 'Copied!' : 'Copy'"
         :title="showCopied ? 'Copied!' : 'Copy'"
       >
-        <svg v-if="!showCopied" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2"/>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-        </svg>
-        <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
+        <Icon v-if="!showCopied" name="copy" />
+        <Icon v-else name="check" />
       </button>
-      <button class="action-btn action-btn-danger" @click="handleDelete" title="Delete">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 6h18"/>
-          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-        </svg>
+      <button 
+        class="action-btn action-btn-danger" 
+        @click="handleDelete" 
+        aria-label="Delete transcription"
+        title="Delete"
+      >
+        <Icon name="trash" />
       </button>
     </div>
   </article>
