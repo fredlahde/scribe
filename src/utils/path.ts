@@ -6,5 +6,6 @@
 export function getFilename(path: string | null): string {
   if (!path) return "";
   const parts = path.split(/[/\\]/);
-  return parts.pop() || path;
+  const filename = parts[parts.length - 1];
+  return filename || "";
 }

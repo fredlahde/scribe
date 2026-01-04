@@ -54,4 +54,10 @@ defineProps<{
     <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
     <path d="M21 3v5h-5"/>
   </svg>
+
+  <!-- Fallback for unknown icon names -->
+  <svg v-else :width="size || 18" :height="size || 18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor">?</text>
+  </svg>
 </template>
