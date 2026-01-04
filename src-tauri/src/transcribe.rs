@@ -23,7 +23,7 @@ impl Transcriber {
         };
 
         let ctx = WhisperContext::new_with_params(model_path, params)
-            .map_err(|e| Error::Transcription(format!("failed to load model: {}", e)))?;
+            .map_err(|e| Error::Transcription(format!("failed to load model: {e}")))?;
 
         Ok(Self { ctx })
     }
@@ -37,7 +37,7 @@ impl Transcriber {
         let mut state = self
             .ctx
             .create_state()
-            .map_err(|e| Error::Transcription(format!("warmup state creation failed: {}", e)))?;
+            .map_err(|e| Error::Transcription(format!("warmup state creation failed: {e}")))?;
 
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
         params.set_language(Some("en"));
@@ -48,7 +48,7 @@ impl Transcriber {
 
         state
             .full(params, &dummy_audio)
-            .map_err(|e| Error::Transcription(format!("warmup inference failed: {}", e)))?;
+            .map_err(|e| Error::Transcription(format!("warmup inference failed: {e}")))?;
 
         Ok(())
     }
@@ -61,7 +61,7 @@ impl Transcriber {
         let mut state = self
             .ctx
             .create_state()
-            .map_err(|e| Error::Transcription(format!("failed to create state: {}", e)))?;
+            .map_err(|e| Error::Transcription(format!("failed to create state: {e}")))?;
 
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
 
@@ -80,7 +80,7 @@ impl Transcriber {
 
         state
             .full(params, audio)
-            .map_err(|e| Error::Transcription(format!("transcription failed: {}", e)))?;
+            .map_err(|e| Error::Transcription(format!("transcription failed: {e}")))?;
 
         let num_segments = state.full_n_segments();
 
@@ -88,7 +88,7 @@ impl Transcriber {
         for i in 0..num_segments {
             if let Some(segment) = state.get_segment(i) {
                 let text = segment.to_str().map_err(|e| {
-                    Error::Transcription(format!("failed to get segment text: {}", e))
+                    Error::Transcription(format!("failed to get segment text: {e}"))
                 })?;
                 result.push_str(text);
             }

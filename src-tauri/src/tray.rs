@@ -17,7 +17,7 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>, hotkey_en: &str) -> tauri::Re
     let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(load_tray_icon(RecordingState::Idle)?)
         .menu(&menu)
-        .tooltip(format!("Scribe - Ready (Press {} to record)", hotkey_en))
+        .tooltip(format!("Scribe - Ready (Press {hotkey_en} to record)"))
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => {
@@ -46,12 +46,12 @@ pub fn load_tray_icon(state: RecordingState) -> tauri::Result<Image<'static>> {
     let decoder = png::Decoder::new(icon_bytes);
     let mut reader = decoder
         .read_info()
-        .map_err(|e| tauri::Error::Io(std::io::Error::other(format!("PNG decode error: {}", e))))?;
+        .map_err(|e| tauri::Error::Io(std::io::Error::other(format!("PNG decode error: {e}"))))?;
 
     let mut buf = vec![0; reader.output_buffer_size()];
     let info = reader
         .next_frame(&mut buf)
-        .map_err(|e| tauri::Error::Io(std::io::Error::other(format!("PNG frame error: {}", e))))?;
+        .map_err(|e| tauri::Error::Io(std::io::Error::other(format!("PNG frame error: {e}"))))?;
 
     // Truncate to actual size
     buf.truncate(info.buffer_size());
@@ -66,10 +66,10 @@ pub fn update_tray_state<R: Runtime>(
     hotkey_mute: &str,
 ) -> tauri::Result<()> {
     let tooltip = match state {
-        RecordingState::Idle => format!("Scribe - Ready (Press {} to record)", hotkey_en),
+        RecordingState::Idle => format!("Scribe - Ready (Press {hotkey_en} to record)"),
         RecordingState::Recording => "Scribe - Recording...".to_string(),
         RecordingState::Transcribing => "Scribe - Transcribing...".to_string(),
-        RecordingState::Muted => format!("Scribe - Muted (Press {} to unmute)", hotkey_mute),
+        RecordingState::Muted => format!("Scribe - Muted (Press {hotkey_mute} to unmute)"),
         RecordingState::WarmingUp => "Scribe - Starting up...".to_string(),
     };
 
@@ -82,10 +82,10 @@ pub fn update_tray_state<R: Runtime>(
 pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         if let Err(e) = window.show() {
-            eprintln!("[Failed to show main window: {}]", e);
+            eprintln!("[Failed to show main window: {e}]");
         }
         if let Err(e) = window.set_focus() {
-            eprintln!("[Failed to focus main window: {}]", e);
+            eprintln!("[Failed to focus main window: {e}]");
         }
     }
 }

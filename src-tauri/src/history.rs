@@ -1,6 +1,5 @@
 //! History module for storing and retrieving transcription records.
 
-use std::path::PathBuf;
 use std::sync::Mutex;
 
 use chrono::{DateTime, Utc};
@@ -31,14 +30,14 @@ pub struct HistoryDb {
 
 impl HistoryDb {
     /// Create a new database connection, initializing the schema if needed
-    pub fn new(app_data_dir: PathBuf) -> Result<Self> {
+    pub fn new(app_data_dir: &std::path::Path) -> Result<Self> {
         // Ensure the directory exists
-        std::fs::create_dir_all(&app_data_dir)
-            .map_err(|e| Error::Database(format!("failed to create app data dir: {}", e)))?;
+        std::fs::create_dir_all(app_data_dir)
+            .map_err(|e| Error::Database(format!("failed to create app data dir: {e}")))?;
 
         let db_path = app_data_dir.join("history.db");
         let conn = Connection::open(&db_path)
-            .map_err(|e| Error::Database(format!("failed to open database: {}", e)))?;
+            .map_err(|e| Error::Database(format!("failed to open database: {e}")))?;
 
         // Set restrictive file permissions (owner read/write only)
         #[cfg(unix)]
@@ -63,7 +62,7 @@ impl HistoryDb {
             )",
             [],
         )
-        .map_err(|e| Error::Database(format!("failed to create table: {}", e)))?;
+        .map_err(|e| Error::Database(format!("failed to create table: {e}")))?;
 
         Ok(Self {
             conn: Mutex::new(conn),
@@ -80,9 +79,11 @@ impl HistoryDb {
         let mut conn = self.conn.lock().unwrap();
 
         // Calculate duration from sample count (16kHz sample rate)
-        let duration_ms = ((sample_count as f64 / WHISPER_SAMPLE_RATE as f64) * 1000.0) as i64;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+        let duration_ms = ((sample_count as f64 / f64::from(WHISPER_SAMPLE_RATE)) * 1000.0) as i64;
 
         // Count words using unicode-aware splitting
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         let word_count = text
             .split(|c: char| c.is_whitespace() || c.is_ascii_punctuation())
             .filter(|s| !s.is_empty())
@@ -95,14 +96,14 @@ impl HistoryDb {
         // Wrap both INSERT and cleanup DELETE in a single transaction
         let tx = conn
             .transaction()
-            .map_err(|e| Error::Database(format!("failed to start transaction: {}", e)))?;
+            .map_err(|e| Error::Database(format!("failed to start transaction: {e}")))?;
 
         tx.execute(
             "INSERT INTO transcriptions (text, language, duration_ms, word_count, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5)",
             params![text, language, duration_ms, word_count, created_at_str],
         )
-        .map_err(|e| Error::Database(format!("failed to insert transcription: {}", e)))?;
+        .map_err(|e| Error::Database(format!("failed to insert transcription: {e}")))?;
 
         let id = tx.last_insert_rowid();
 
@@ -113,10 +114,10 @@ impl HistoryDb {
             )",
             params![MAX_HISTORY_SIZE],
         )
-        .map_err(|e| Error::Database(format!("failed to cleanup old entries: {}", e)))?;
+        .map_err(|e| Error::Database(format!("failed to cleanup old entries: {e}")))?;
 
         tx.commit()
-            .map_err(|e| Error::Database(format!("failed to commit transaction: {}", e)))?;
+            .map_err(|e| Error::Database(format!("failed to commit transaction: {e}")))?;
 
         Ok(Transcription {
             id,
@@ -139,7 +140,7 @@ impl HistoryDb {
                  ORDER BY created_at DESC
                  LIMIT ?1",
             )
-            .map_err(|e| Error::Database(format!("failed to prepare query: {}", e)))?;
+            .map_err(|e| Error::Database(format!("failed to prepare query: {e}")))?;
 
         let transcriptions = stmt
             .query_map([limit], |row| {
@@ -152,9 +153,9 @@ impl HistoryDb {
                     created_at: row.get(5)?,
                 })
             })
-            .map_err(|e| Error::Database(format!("failed to query history: {}", e)))?
+            .map_err(|e| Error::Database(format!("failed to query history: {e}")))?
             .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(|e| Error::Database(format!("failed to collect results: {}", e)))?;
+            .map_err(|e| Error::Database(format!("failed to collect results: {e}")))?;
 
         Ok(transcriptions)
     }
@@ -165,7 +166,7 @@ impl HistoryDb {
 
         let rows_affected = conn
             .execute("DELETE FROM transcriptions WHERE id = ?1", params![id])
-            .map_err(|e| Error::Database(format!("failed to delete transcription: {}", e)))?;
+            .map_err(|e| Error::Database(format!("failed to delete transcription: {e}")))?;
 
         Ok(rows_affected > 0)
     }
@@ -179,7 +180,7 @@ mod tests {
     #[test]
     fn test_save_and_get_transcription() {
         let temp_dir = tempdir().unwrap();
-        let db = HistoryDb::new(temp_dir.path().to_path_buf()).unwrap();
+        let db = HistoryDb::new(temp_dir.path()).unwrap();
 
         // Save a transcription (16000 samples = 1 second at 16kHz)
         let transcription = db.save_transcription("Hello world", "en", 16000).unwrap();
@@ -198,7 +199,7 @@ mod tests {
     #[test]
     fn test_delete_transcription() {
         let temp_dir = tempdir().unwrap();
-        let db = HistoryDb::new(temp_dir.path().to_path_buf()).unwrap();
+        let db = HistoryDb::new(temp_dir.path()).unwrap();
 
         let transcription = db.save_transcription("Test", "de", 8000).unwrap();
         let deleted = db.delete_transcription(transcription.id).unwrap();
@@ -211,7 +212,7 @@ mod tests {
     #[test]
     fn test_max_history_cleanup() {
         let temp_dir = tempdir().unwrap();
-        let db = HistoryDb::new(temp_dir.path().to_path_buf()).unwrap();
+        let db = HistoryDb::new(temp_dir.path()).unwrap();
 
         // Insert more than MAX_HISTORY_SIZE entries
         for i in 0..55 {

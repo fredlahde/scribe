@@ -15,7 +15,7 @@ pub fn setup_shortcut(
 ) -> Result<()> {
     let shortcut: Shortcut = shortcut_str
         .parse()
-        .map_err(|e| Error::Hotkey(format!("invalid shortcut '{}': {}", shortcut_str, e)))?;
+        .map_err(|e| Error::Hotkey(format!("invalid shortcut '{shortcut_str}': {e}")))?;
     let app_handle = app.clone();
 
     app.global_shortcut()
@@ -31,9 +31,9 @@ pub fn setup_shortcut(
                 }
             }
         })
-        .map_err(|e| Error::Hotkey(format!("failed to register shortcut: {}", e)))?;
+        .map_err(|e| Error::Hotkey(format!("failed to register shortcut: {e}")))?;
 
-    eprintln!("[Shortcut registered: {} ({:?})]", shortcut_str, language);
+    eprintln!("[Shortcut registered: {shortcut_str} ({language:?})]");
     Ok(())
 }
 
@@ -41,7 +41,7 @@ pub fn setup_shortcut(
 pub fn setup_mute_shortcut(app: &tauri::AppHandle, shortcut_str: &str) -> Result<()> {
     let shortcut: Shortcut = shortcut_str
         .parse()
-        .map_err(|e| Error::Hotkey(format!("invalid shortcut '{}': {}", shortcut_str, e)))?;
+        .map_err(|e| Error::Hotkey(format!("invalid shortcut '{shortcut_str}': {e}")))?;
     let app_handle = app.clone();
 
     app.global_shortcut()
@@ -51,9 +51,9 @@ pub fn setup_mute_shortcut(app: &tauri::AppHandle, shortcut_str: &str) -> Result
                 handle_mute_toggle(&app_handle);
             }
         })
-        .map_err(|e| Error::Hotkey(format!("failed to register shortcut: {}", e)))?;
+        .map_err(|e| Error::Hotkey(format!("failed to register shortcut: {e}")))?;
 
-    eprintln!("[Mute shortcut registered: {}]", shortcut_str);
+    eprintln!("[Mute shortcut registered: {shortcut_str}]");
     Ok(())
 }
 
@@ -67,7 +67,7 @@ pub fn register_all_shortcuts(
     let shortcut_manager = app.global_shortcut();
     shortcut_manager
         .unregister_all()
-        .map_err(|e| format!("failed to unregister shortcuts: {}", e))?;
+        .map_err(|e| format!("failed to unregister shortcuts: {e}"))?;
 
     // Register English shortcut
     setup_shortcut(app, &settings.hotkey_en, Language::English).map_err(|e| e.to_string())?;
