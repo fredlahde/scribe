@@ -37,6 +37,7 @@
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "visibleOnAllWorkspaces": true,
+        "focusable": false,
         "url": "overlay.html"
       }
     ],

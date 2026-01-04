@@ -126,7 +126,6 @@ pub fn handle_recording_start(app: &tauri::AppHandle, language: Language) {
             }
         }
         let _ = overlay.show();
-        let _ = overlay.set_focus();
     }
 
     // Spawn thread to emit audio levels
