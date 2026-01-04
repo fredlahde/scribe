@@ -1,0 +1,105 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  background: transparent;
+}
+
+body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlay-container {
+  width: 180px;
+  height: 40px;
+  background: rgba(40, 40, 40, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.waveform {
+  width: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.waveform-bar {
+  width: 3px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 1.5px;
+  transition: height 0.08s ease-out;
+}
+
+.spinner {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.spinner-blade {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 6px;
+  margin-left: -1px;
+  margin-top: -9px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.25);
+  transform-origin: center 9px;
+  animation: spinner-fade 1s linear infinite;
+}
+
+@keyframes spinner-fade {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* Warmup mode styles */
+.overlay-container.with-text {
+  height: 56px;
+  flex-direction: column;
+  padding: 8px 14px 6px;
+  gap: 4px;
+}
+
+.waveform.warmup .waveform-bar {
+  background: linear-gradient(180deg, #ffcc00 0%, #ff9500 100%);
+  border-radius: 2px;
+  transition: none;
+}
+
+.warmup-text {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+}
