@@ -28,6 +28,31 @@ impl Transcriber {
         Ok(Self { ctx })
     }
 
+    /// Run a brief inference to pre-initialize the compute engine (ANE/CoreML/Metal).
+    /// This makes the first real transcription much faster.
+    pub fn warmup(&self) -> Result<()> {
+        // 0.2 seconds of silence - Whisper requires at least 100ms of audio
+        let dummy_audio = vec![0.0f32; (WHISPER_SAMPLE_RATE / 5) as usize];
+
+        let mut state = self
+            .ctx
+            .create_state()
+            .map_err(|e| Error::Transcription(format!("warmup state creation failed: {}", e)))?;
+
+        let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+        params.set_language(Some("en"));
+        params.set_print_special(false);
+        params.set_print_progress(false);
+        params.set_print_realtime(false);
+        params.set_print_timestamps(false);
+
+        state
+            .full(params, &dummy_audio)
+            .map_err(|e| Error::Transcription(format!("warmup inference failed: {}", e)))?;
+
+        Ok(())
+    }
+
     pub fn transcribe(&self, audio: &[f32], language: Language) -> Result<String> {
         if audio.is_empty() {
             return Ok(String::new());
