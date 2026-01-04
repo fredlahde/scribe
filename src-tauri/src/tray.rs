@@ -34,6 +34,8 @@ pub fn create_tray<R: Runtime>(app: &AppHandle<R>, hotkey_en: &str) -> tauri::Re
 }
 
 pub fn load_tray_icon(state: RecordingState) -> tauri::Result<Image<'static>> {
+    use std::io::Cursor;
+
     let icon_bytes: &[u8] = match state {
         RecordingState::Idle => include_bytes!("../icons/tray-idle.png"),
         RecordingState::Recording => include_bytes!("../icons/tray-recording.png"),
@@ -42,13 +44,16 @@ pub fn load_tray_icon(state: RecordingState) -> tauri::Result<Image<'static>> {
         RecordingState::WarmingUp => include_bytes!("../icons/tray-warmup.png"),
     };
 
-    // Decode PNG to RGBA
-    let decoder = png::Decoder::new(icon_bytes);
+    // Decode PNG to RGBA - wrap in Cursor to provide Seek trait
+    let decoder = png::Decoder::new(Cursor::new(icon_bytes));
     let mut reader = decoder
         .read_info()
         .map_err(|e| tauri::Error::Io(std::io::Error::other(format!("PNG decode error: {e}"))))?;
 
-    let mut buf = vec![0; reader.output_buffer_size()];
+    let buf_size = reader
+        .output_buffer_size()
+        .ok_or_else(|| tauri::Error::Io(std::io::Error::other("PNG output buffer size unknown")))?;
+    let mut buf = vec![0; buf_size];
     let info = reader
         .next_frame(&mut buf)
         .map_err(|e| tauri::Error::Io(std::io::Error::other(format!("PNG frame error: {e}"))))?;

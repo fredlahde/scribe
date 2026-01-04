@@ -1,6 +1,6 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, FromSample, Sample, SampleFormat, Stream, StreamConfig};
-use rubato::{FftFixedIn, Resampler};
+use rubato::{Fft, FixedSync, Resampler};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -373,40 +373,42 @@ fn stereo_to_mono(samples: &[f32], channels: usize) -> Vec<f32> {
 }
 
 fn resample(samples: &[f32], from_rate: u32, to_rate: u32) -> Result<Vec<f32>> {
+    use audioadapter_buffers::direct::SequentialSliceOfVecs;
+
     // Use a reasonable chunk size for the resampler
     let chunk_size = 1024;
 
-    let mut resampler = FftFixedIn::<f32>::new(
+    let mut resampler = Fft::<f32>::new(
         from_rate as usize,
         to_rate as usize,
         chunk_size,
         1, // sub_chunks
         1, // channels (mono)
+        FixedSync::Input,
     )
     .map_err(|e| Error::Resample(format!("failed to create resampler: {e}")))?;
 
-    let mut output = Vec::new();
+    // Wrap input in a single-channel vector for the adapter
+    // SequentialSliceOfVecs::new takes (buf, channels, frames)
+    let input_data = vec![samples.to_vec()];
+    let input_adapter = SequentialSliceOfVecs::new(&input_data, 1, samples.len())
+        .map_err(|e| Error::Resample(format!("failed to create input adapter: {e}")))?;
 
-    // Process in chunks
-    for chunk in samples.chunks(chunk_size) {
-        // Pad the last chunk if needed
-        let input_chunk = if chunk.len() < chunk_size {
-            let mut padded = chunk.to_vec();
-            padded.resize(chunk_size, 0.0);
-            padded
-        } else {
-            chunk.to_vec()
-        };
+    // Calculate output size and allocate buffer with safety margin
+    // process_all_needed_output_len can slightly underestimate, so add extra frames
+    let output_len = resampler.process_all_needed_output_len(samples.len()) + chunk_size;
+    let mut output_data = vec![vec![0.0f32; output_len]];
+    let mut output_adapter = SequentialSliceOfVecs::new_mut(&mut output_data, 1, output_len)
+        .map_err(|e| Error::Resample(format!("failed to create output adapter: {e}")))?;
 
-        let waves_in = vec![input_chunk];
-        let waves_out = resampler
-            .process(&waves_in, None)
-            .map_err(|e| Error::Resample(format!("failed to resample: {e}")))?;
+    // Process all samples at once
+    let (_, frames_written) = resampler
+        .process_all_into_buffer(&input_adapter, &mut output_adapter, samples.len(), None)
+        .map_err(|e| Error::Resample(format!("failed to resample: {e}")))?;
 
-        if let Some(channel) = waves_out.into_iter().next() {
-            output.extend(channel);
-        }
-    }
+    // Extract the output from the first (and only) channel
+    let mut output = output_data.into_iter().next().unwrap_or_default();
+    output.truncate(frames_written);
 
     eprintln!("[Resampled {} -> {} samples]", samples.len(), output.len());
     Ok(output)
