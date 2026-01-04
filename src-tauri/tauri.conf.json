@@ -59,9 +59,7 @@
       "icons/icon.png"
     ],
     "resources": [
-      "icons/tray-idle.png",
-      "icons/tray-recording.png",
-      "icons/tray-transcribing.png"
+      "icons/tray-idle.png"
     ],
     "macOS": {
       "minimumSystemVersion": "10.15",
