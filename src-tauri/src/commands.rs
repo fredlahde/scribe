@@ -66,6 +66,8 @@ pub async fn reload_settings(app: tauri::AppHandle) -> Result<(), String> {
         // Update hotkey settings for tray tooltips
         res.hotkey_en.clone_from(&settings.hotkey_en);
         res.hotkey_mute.clone_from(&settings.hotkey_mute);
+        // Update output mode
+        res.output_mode = settings.output_mode.clone();
     }
 
     // Re-register all shortcuts with new hotkeys

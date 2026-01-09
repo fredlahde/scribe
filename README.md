@@ -13,7 +13,7 @@ A macOS push-to-talk voice transcription app built with Tauri. Hold a hotkey to 
 - **Push-to-talk recording** - Hold a configurable hotkey to record, release to transcribe
 - **Fast local transcription** - Uses Whisper.cpp with CoreML and Metal GPU acceleration
 - **Multi-language support** - Separate hotkeys for English and German transcription
-- **Auto-typing** - Transcribed text is automatically typed at your cursor position
+- **Flexible output modes** - Type text directly or copy-and-paste via clipboard
 - **Transcription history** - View, copy, and manage your recent transcriptions
 - **System tray app** - Lives in your menu bar with status indicators
 - **Mute toggle** - Quickly disable/enable the microphone with a hotkey
@@ -90,7 +90,21 @@ The built app will be in `src-tauri/target/release/bundle/macos/`.
 
 1. Position your cursor where you want the text to appear
 2. **Hold** the English hotkey (default: F2) and speak
-3. **Release** the hotkey when done - the app will transcribe and type the result
+3. **Release** the hotkey when done - the app will transcribe and output the result
+
+### Output Modes
+
+Scribe offers two ways to deliver transcribed text, configurable in Settings:
+
+| Mode               | Description                                                                             |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| **Type** (default) | Text is typed character-by-character at your cursor position using simulated keystrokes |
+| **Copy**           | Text is copied to clipboard and automatically pasted at your cursor position            |
+
+**When to use each mode:**
+
+- **Type mode** works in most applications and preserves your clipboard contents. However, some applications with custom text input handling may not receive keystrokes correctly.
+- **Copy mode** is more reliable in applications that don't respond well to simulated typing (e.g., some Electron apps, terminals, or IDEs with aggressive autocomplete). The tradeoff is that it **overwrites your clipboard** with the transcribed text.
 
 ### Transcription History
 
@@ -183,6 +197,10 @@ Grant microphone permission in System Preferences > Security & Privacy > Privacy
 ### Text not typing
 
 Grant accessibility permission in System Preferences > Security & Privacy > Privacy > Accessibility.
+
+### Copy mode not pasting
+
+Copy mode uses AppleScript to simulate Cmd+V. If pasting fails, ensure Scribe has permission to control System Events in System Preferences > Security & Privacy > Privacy > Automation.
 
 ### Slow transcription
 

@@ -23,7 +23,7 @@ use crate::commands::{
 };
 use crate::history::HistoryDb;
 use crate::input::TextInput;
-use crate::settings::{AppSettings, AppStateHolder};
+use crate::settings::{AppSettings, AppStateHolder, OutputMode};
 use crate::shortcuts::{setup_mute_shortcut, setup_shortcut};
 use crate::transcribe::{Language, Transcriber};
 use crate::tray::{create_tray, show_main_window};
@@ -39,6 +39,8 @@ pub struct AppResources {
     /// Hotkey settings for tray tooltip
     pub hotkey_en: String,
     pub hotkey_mute: String,
+    /// Output mode for transcribed text
+    pub output_mode: OutputMode,
 }
 
 /// Initialize audio recorder with optional device.
@@ -158,6 +160,7 @@ pub fn run() {
                 pending_language: Language::English,
                 hotkey_en: settings.hotkey_en.clone(),
                 hotkey_mute: settings.hotkey_mute.clone(),
+                output_mode: settings.output_mode.clone(),
             })));
 
             // Setup tray and shortcuts

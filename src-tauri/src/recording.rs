@@ -8,7 +8,7 @@ use tauri_plugin_notification::NotificationExt;
 
 use crate::constants::{position_overlay_bottom_center, OVERLAY_HEIGHT_RECORDING};
 use crate::history::HistoryDb;
-use crate::settings::RecordingState;
+use crate::settings::{OutputMode, RecordingState};
 use crate::transcribe::Language;
 use crate::tray::{show_main_window, update_tray_state, TRAY_ID};
 use crate::AppResources;
@@ -198,20 +198,36 @@ fn process_transcription_result(
         }
     }
 
-    // Type the text
-    {
+    // Output text based on mode
+    let (output_mode, output_result) = {
         let mut res = resources.lock().unwrap();
-        if let Err(e) = res.text_input.type_text(text) {
-            eprintln!("[Type error: {e}]");
-        }
-    }
+        let mode = res.output_mode.clone();
+        let result = match mode {
+            OutputMode::Copy => res.text_input.copy_text(app, text),
+            OutputMode::Type => res.text_input.type_text(text),
+        };
+        (mode, result)
+    };
 
-    // Show notification
+    // Show notification based on result
+    let body = match &output_result {
+        Ok(()) => match output_mode {
+            OutputMode::Copy => "Copied and pasted",
+            OutputMode::Type => "Transcription complete",
+        },
+        Err(e) => {
+            eprintln!("[Output error: {e}]");
+            match output_mode {
+                OutputMode::Copy => "Failed to copy and paste",
+                OutputMode::Type => "Failed to type text",
+            }
+        }
+    };
     let _ = app
         .notification()
         .builder()
         .title("Scribe")
-        .body("Transcription complete")
+        .body(body)
         .show();
 }
 

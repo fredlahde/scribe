@@ -5,6 +5,9 @@ pub enum Error {
     #[error("audio error: {0}")]
     Audio(String),
 
+    #[error("clipboard error: {0}")]
+    Clipboard(String),
+
     #[error("database error: {0}")]
     Database(String),
 

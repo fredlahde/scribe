@@ -17,6 +17,7 @@ interface Settings {
   hotkey_mute: string;
   model_path: string | null;
   audio_device: string;
+  output_mode: "type" | "copy";
 }
 
 const settings = ref<Settings>({
@@ -25,6 +26,7 @@ const settings = ref<Settings>({
   hotkey_mute: DEFAULT_HOTKEYS.MUTE,
   model_path: null,
   audio_device: "",
+  output_mode: "type",
 });
 
 const showModelWarning = ref(false);
@@ -58,6 +60,7 @@ onMounted(async () => {
   const savedHotkeyMute = await store.get(STORE_KEYS.HOTKEY_MUTE);
   const savedModelPath = await store.get(STORE_KEYS.MODEL_PATH);
   const savedAudioDevice = await store.get(STORE_KEYS.AUDIO_DEVICE);
+  const savedOutputMode = await store.get(STORE_KEYS.OUTPUT_MODE);
 
   if (typeof savedHotkey === "string") {
     settings.value.hotkey = savedHotkey;
@@ -73,6 +76,10 @@ onMounted(async () => {
   }
   if (typeof savedAudioDevice === "string") {
     settings.value.audio_device = savedAudioDevice;
+  }
+
+  if (savedOutputMode === "type" || savedOutputMode === "copy") {
+    settings.value.output_mode = savedOutputMode;
   }
 
   showModelWarning.value = !settings.value.model_path;
@@ -138,6 +145,7 @@ async function saveSettings() {
     await store.set(STORE_KEYS.HOTKEY_MUTE, settings.value.hotkey_mute || DEFAULT_HOTKEYS.MUTE);
     await store.set(STORE_KEYS.MODEL_PATH, settings.value.model_path);
     await store.set(STORE_KEYS.AUDIO_DEVICE, settings.value.audio_device || "");
+    await store.set(STORE_KEYS.OUTPUT_MODE, settings.value.output_mode);
     await store.save();
 
     try {
@@ -200,6 +208,44 @@ function cancel() {
         >
           <Icon name="refresh" :size="14" :class="{ spinning: isRefreshingDevices }" />
         </button>
+      </div>
+    </section>
+
+    <!-- Output Mode -->
+    <section class="section">
+      <h2 class="section-title">Output Mode</h2>
+      <p class="section-desc">Choose how transcribed text is delivered</p>
+      <div class="output-toggle">
+        <div class="toggle-track">
+          <div class="toggle-slider" :class="{ 'slide-right': settings.output_mode === 'copy' }"></div>
+          <button 
+            type="button"
+            class="toggle-option" 
+            :class="{ active: settings.output_mode === 'type' }"
+            @click="settings.output_mode = 'type'"
+          >
+            <svg class="toggle-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z"/>
+              <path d="M15 12l2 2m0 0l2-2m-2 2V8" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="toggle-label">Type</span>
+          </button>
+          <button 
+            type="button"
+            class="toggle-option" 
+            :class="{ active: settings.output_mode === 'copy' }"
+            @click="settings.output_mode = 'copy'"
+          >
+            <svg class="toggle-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
+              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
+            </svg>
+            <span class="toggle-label">Copy</span>
+          </button>
+        </div>
+        <p class="toggle-hint">
+          {{ settings.output_mode === 'type' ? 'Text will be typed at your cursor position' : 'Text will be copied to clipboard and pasted at your cursor position' }}
+        </p>
       </div>
     </section>
 
@@ -294,6 +340,92 @@ function cancel() {
 
 .model-box.empty .model-name {
   color: var(--text-muted);
+}
+
+.output-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toggle-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  height: calc(100% - 8px);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  border-radius: var(--radius-md);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(20, 184, 166, 0.3);
+}
+
+.toggle-slider.slide-right {
+  transform: translateX(calc(100% + 4px));
+}
+
+.toggle-option {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+
+.toggle-option .toggle-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  transition: color 0.2s var(--ease);
+}
+
+.toggle-option .toggle-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color 0.2s var(--ease);
+}
+
+.toggle-option.active .toggle-icon,
+.toggle-option.active .toggle-label {
+  color: var(--text-inverse);
+}
+
+.toggle-option:not(.active):hover .toggle-icon,
+.toggle-option:not(.active):hover .toggle-label {
+  color: var(--text-primary);
+}
+
+.toggle-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toggle-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  min-height: 18px;
+  transition: color 0.15s var(--ease);
 }
 
 .actions {

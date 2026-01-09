@@ -7,6 +7,13 @@ pub const DEFAULT_HOTKEY_EN: &str = "F2";
 /// Default hotkey for mute toggle
 pub const DEFAULT_HOTKEY_MUTE: &str = "F4";
 
+/// Output mode for transcribed text
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputMode {
+    Type,
+    Copy,
+}
+
 /// Application settings loaded from the store
 #[derive(Debug, Clone)]
 pub struct AppSettings {
@@ -15,6 +22,7 @@ pub struct AppSettings {
     pub hotkey_mute: String,
     pub model_path: Option<String>,
     pub audio_device: Option<String>,
+    pub output_mode: OutputMode,
 }
 
 impl AppSettings {
@@ -42,12 +50,23 @@ impl AppSettings {
             .get("audio_device")
             .and_then(|v| v.as_str().map(String::from));
 
+        let output_mode = store
+            .get("output_mode")
+            .and_then(|v| {
+                v.as_str().map(|s| match s {
+                    "copy" => OutputMode::Copy,
+                    _ => OutputMode::Type,
+                })
+            })
+            .unwrap_or_else(|| OutputMode::Type);
+
         Self {
             hotkey_en,
             hotkey_de,
             hotkey_mute,
             model_path,
             audio_device,
+            output_mode,
         }
     }
 }

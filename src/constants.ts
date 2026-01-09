@@ -26,6 +26,7 @@ export const STORE_KEYS = {
   HOTKEY_MUTE: "hotkey_mute",
   MODEL_PATH: "model_path",
   AUDIO_DEVICE: "audio_device",
+  OUTPUT_MODE: "output_mode",
 } as const;
 
 /**
