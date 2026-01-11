@@ -68,3 +68,8 @@ open-bundle:
 
 # Build and open the bundle
 release: build open-bundle
+
+# Reset macOS permissions for dev builds
+reset-permissions:
+    sudo tccutil reset Accessibility com.scribe.app
+    sudo tccutil reset AppleEvents com.scribe.app

@@ -218,7 +218,13 @@ When testing production builds (`just build`), you may need to reset accessibili
 sudo tccutil reset Accessibility com.scribe.app
 ```
 
-After running this command, re-grant accessibility permission when prompted. This is expected behavior for local development builds and does not affect end users installing signed releases.
+If you use **Copy** mode and pasting stops working, reset Automation (System Events) permissions so macOS prompts you again:
+
+```bash
+sudo tccutil reset AppleEvents com.scribe.app
+```
+
+After running these commands, re-grant the permission(s) when prompted. This is expected behavior for local development builds and does not affect end users installing signed releases.
 
 ## License
 
